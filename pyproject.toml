@@ -7,7 +7,7 @@ name = "mimlos"
 dynamic = ["version"]
 description = "Municipal Inventory seisMic LOSs assessment framework"
 readme = """
-A repository for the seismic loss and recovery analysis of a municipal building inventory in the Canadian context. Framework for modelling and analysing multi-degree-of-freedom systems for response characterisation of global building classes is powered by OpenQuake VMTK.
+A repository for the seismic loss and recovery analysis of a municipal building inventory in the Canadian context, with framework for modelling and analysing multi-degree-of-freedom systems for response characterisation of global building classes powered by OpenQuake VMTK
 Copyright (C) 2025 GEM Foundation
 """
 license = { text = "AGPL-3.0-only" }
