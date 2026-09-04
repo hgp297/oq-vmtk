@@ -3,19 +3,21 @@ requires = ["setuptools >= 69.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "openquake.vmtk"
+name = "mimlos"
 dynamic = ["version"]
-description = "Vulnerability Toolkit"
+description = "Municipal Inventory seisMic LOSs assessment framework"
 readme = """
-A repository for modelling and analysing multi-degree-of-freedom systems for response characterisation of global building classes
+A repository for the seismic loss and recovery analysis of a municipal building inventory in the Canadian context. Framework for modelling and analysing multi-degree-of-freedom systems for response characterisation of global building classes is powered by OpenQuake VMTK.
 Copyright (C) 2025 GEM Foundation
 """
 license = { text = "AGPL-3.0-only" }
 
 authors = [
+    { name = "Huy G. Pham", email = "huy.pham@civil.ubc.ca" },
     { name = "GEM Foundation", email = "risk@globalquakemodel.org" },
 ]
 maintainers = [
+    { name = "Huy G. Pham", email = "huy.pham@civil.ubc.ca" },
     { name = "GEM Foundation", email = "risk@globalquakemodel.org" },
 ]
 
@@ -63,7 +65,7 @@ Documentation = " "
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["openquake*"]
+include = ["openquake*","mimlos*"]
 
 [tool.setuptools.exclude-package-data]
 "*" = [
@@ -72,4 +74,4 @@ include = ["openquake*"]
 ]
 
 [tool.setuptools.dynamic]
-version = {attr = "openquake.vmtk.__version__"}
+version = {attr = "mimlos.mimlos.__version__"}
