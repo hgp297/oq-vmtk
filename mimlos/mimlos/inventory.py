@@ -1,6 +1,7 @@
 from pathlib import Path
 import pandas as pd
-
+import numpy as np
+from . import properties
 
 class Inventory:
     """
@@ -28,7 +29,9 @@ class Inventory:
     """
     def __init__(self, df: pd.DataFrame):
         self.df_raw = df
-        self.df_clean = self.filter_reviewed(df)
+        self.inventory_df = self.filter_reviewed()
+
+        
 
     @classmethod
     def load_from_csv(cls, path: str | Path) -> "Inventory":
@@ -65,18 +68,67 @@ class Inventory:
         df = pd.read_csv(path, encoding='cp863', header=1)
         return cls(df)
 
-    def filter_reviewed(self, inv_df: pd.DataFrame):
+
+### transformations (preprocessing)
+
+    def filter_reviewed(self):
         '''
         Filter the data to only engineer-reviewed buildings to ensure
         that the df row are more completely surveyed.
 
         Parameters
         ----------
-        inv_df: Dataframe
-            Raw unprocessed inventory dataframe
+        self: Instance of Inventory. Should have df_raw attribute
+        generated from csv.
 
         Returns
         -------
         pd.DataFrame with only non-empty "Approved?" rows.
         '''
-        return inv_df[inv_df['Approved?'].notna()]
+        return self.df_raw[self.df_raw['Approved?'].notna()].copy()
+
+    def latest_renovation_year(self):
+        '''
+        Cleans the "Year(s) of Major Renovation(s)" field to only
+        the latest year found.
+
+        Cleans the "NBC Code Year (Original Building)" field to 
+        the original NBCC year. Fill to construction year if pre-code.
+        '''
+        years = self.inventory_df["Year(s) of Major Renovation(s)"].astype("string").str.findall(r"\d{4}")
+
+        self.inventory_df["latest_renovation_year"] = (
+            years
+            .explode()
+            .astype("Int64")
+            .groupby(level=0)
+            .max()
+            .reindex(self.inventory_df.index)
+        )
+
+        self.inventory_df["original_nbcc_year"] = pd.to_numeric(
+            self.inventory_df["NBC Code Year (Original Building)"].str.extract(r"(\d+\.?\d*)")[0], errors="coerce"
+        ).fillna(self.inventory_df["Year Built"]).astype("Int64")
+
+### calculation functions
+
+    def estimate_Vs(self):
+
+        # clean renovation year column
+        self.latest_renovation_year()
+
+        # determine latest year of seismic code
+        self.inventory_df['effective_nbcc_year'] = properties.determine_effective_nbcc_year(
+            self.inventory_df["original_nbcc_year"],
+            self.inventory_df["latest_renovation_year"]
+        )
+
+        
+
+        
+
+
+### validation/assertions
+
+
+
