@@ -13,6 +13,10 @@ class Inventory:
     Methods hosted include preprocessing functions and step-by-step
     functions to go through the assessment methodology.
 
+    Field names are currently hard-coded to be of the formatting
+    used by the City of Vancouver's Real Estate and Facilities Management
+    (CoV REFM) building survey sheet.
+
     TODO: description of methodology
     
     Attributes
@@ -87,17 +91,17 @@ class Inventory:
         '''
         return self.df_raw[self.df_raw['Approved?'].notna()].copy()
 
-    def latest_renovation_year(self):
+    def latest_seismic_upgrade_year(self):
         '''
-        Cleans the "Year(s) of Major Renovation(s)" field to only
+        Cleans the "Seismic Upgrade Year" field to only
         the latest year found.
 
         Cleans the "NBC Code Year (Original Building)" field to 
         the original NBCC year. Fill to construction year if pre-code.
         '''
-        years = self.inventory_df["Year(s) of Major Renovation(s)"].astype("string").str.findall(r"\d{4}")
+        years = self.inventory_df["Seismic Upgrade Year"].astype("string").str.findall(r"\d{4}")
 
-        self.inventory_df["latest_renovation_year"] = (
+        self.inventory_df["latest_seismic_upgrade_year"] = (
             years
             .explode()
             .astype("Int64")
@@ -113,15 +117,26 @@ class Inventory:
 ### calculation functions
 
     def estimate_Vs(self):
+        '''
+        Estimate the lateral strength of the building by using the 
+        static lateral base shear estimate of the code at the time 
+        of the construction or latest upgrade of the building.
 
-        # clean renovation year column
-        self.latest_renovation_year()
+        
+        '''
+
+        # clean upgrade year column
+        self.latest_seismic_upgrade_year()
 
         # determine latest year of seismic code
         self.inventory_df['effective_nbcc_year'] = properties.determine_effective_nbcc_year(
             self.inventory_df["original_nbcc_year"],
-            self.inventory_df["latest_renovation_year"]
+            self.inventory_df["latest_seismic_upgrade_year"]
         )
+
+        # TODO: weight function
+        # TODO: distribution of forces
+        # TODO: load factors
 
         
 
