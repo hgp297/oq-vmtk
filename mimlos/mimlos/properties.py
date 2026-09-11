@@ -1984,7 +1984,7 @@ def vs_nbcc_2015(row, seismic_hazard_params):
     }
 
     # ductile coupled walls is assumed to be classified as "CSW", which is ductile shear wall as it is the more conservative one
-    # it is assumed that RM construction 1995 and after are "nominal ductility"
+    # it is assumed that RM construction 2015 and after are "ductile"
 
     def flowchart_2015(lfrs):
 
@@ -2185,38 +2185,6 @@ def vs_nbcc_2020(row, seismic_hazard_params):
     Sa_pga = seismic_hazard_params['Sa_pga']
     Sa_pgv = seismic_hazard_params['Sa_pgv']
 
-    # lookup Fa using PGA_ref and site class
-    # site class F needs in-depth geotechnical study
-    if Sa_0p2/Sa_pga < 2.0:
-        PGA_ref = 0.8 * Sa_pga
-    else:
-        PGA_ref = Sa_pga
-
-    F_0p2 = np.interp(
-        PGA_ref, F_0P2_TABLE_2015.index, F_0P2_TABLE_2015[site_class]
-    )
-    F_0p5 = np.interp(
-        PGA_ref, F_0P5_TABLE_2015.index, F_0P5_TABLE_2015[site_class]
-    )
-    F_1p0 = np.interp(
-        PGA_ref, F_1P0_TABLE_2015.index, F_1P0_TABLE_2015[site_class]
-    )
-    F_2p0 = np.interp(
-        PGA_ref, F_2P0_TABLE_2015.index, F_2P0_TABLE_2015[site_class]
-    )
-    F_5p0 = np.interp(
-        PGA_ref, F_5P0_TABLE_2015.index, F_5P0_TABLE_2015[site_class]
-    )
-    F_10p0 = np.interp(
-        PGA_ref, F_10P0_TABLE_2015.index, F_10P0_TABLE_2015[site_class]
-    )
-    F_pga = np.interp(
-        PGA_ref, F_PGA_TABLE_2015.index, F_PGA_TABLE_2015[site_class]
-    )
-    F_pgv = np.interp(
-        PGA_ref, F_PGV_TABLE_2015.index, F_PGV_TABLE_2015[site_class]
-    )
-
     # TODO: temporarily estimate bldg_height if not available
     # estimate as 3.5m stories
     if np.isnan(bldg_height):
@@ -2283,9 +2251,9 @@ def vs_nbcc_2020(row, seismic_hazard_params):
     }
 
     # ductile coupled walls is assumed to be classified as "CSW", which is ductile shear wall as it is the more conservative one
-    # it is assumed that RM construction 1995 and after are "nominal ductility"
+    # it is assumed that RM construction 2015 and after are "ductile"
 
-    def flowchart_2015(lfrs):
+    def flowchart_2020(lfrs):
 
         R_d = Rd_lookup_table[lfrs]
         R_o = Ro_lookup_table[lfrs]
@@ -2312,12 +2280,12 @@ def vs_nbcc_2020(row, seismic_hazard_params):
         # F factors
         T_anchor = np.array([0.2, 0.5, 1.0, 2.0, 5.0, 10.0])
         S_T_functions = np.array([
-            np.maximum(F_0p2*Sa_0p2, F_0p5*Sa_0p5),
-            F_0p5*Sa_0p5,
-            F_1p0*Sa_1p0,
-            F_2p0*Sa_2p0,
-            F_5p0*Sa_5p0,
-            F_10p0*Sa_10p0,
+            np.maximum(Sa_0p2, Sa_0p5),
+            Sa_0p5,
+            Sa_1p0,
+            Sa_2p0,
+            Sa_5p0,
+            Sa_10p0,
         ])
 
         S_Tperiod = np.interp(T_period, T_anchor, S_T_functions)
@@ -2338,32 +2306,32 @@ def vs_nbcc_2020(row, seismic_hazard_params):
 
             if lfrs_name in ['SMF', 'CMF']:
                 Mv_table = np.array([
-                    [1, 1, 1, 1],
-                    [1, 1, 1, 1],
-                    [1, 1, 1, 1],
-                    [1, 1, 1.03, 1.03],
+                    [1., 1., 1., 1.],
+                    [1., 1., 1., 1.],
+                    [1., 1., 1., 1.],
+                    [1., 1., 1., 1.],
                 ])
             elif lfrs_name in ['SBF']:
                 Mv_table = np.array([
-                    [1, 1, 1, 1],
-                    [1, 1, 1, 1],
-                    [1, 1, 1, 1],
-                    [1, 1.04, 1.07, 1.07],
+                    [1., 1., 1., 1.],
+                    [1., 1., 1., 1.],
+                    [1., 1., 1., 1.],
+                    [1., 1., 1.19, 1.19],
                 ])
             # walls and wall-frame systems
             elif lfrs_name in ['SCW', 'SIW', 'CSW', 'CIW', 'PCW', 'PCF1', 'RML', 'RMC', 'URM', 'CFS1', 'CFS2']:
                 Mv_table = np.array([
-                    [1, 1, 1, 1.25],
-                    [1, 1, 1.18, 2.30],
-                    [1, 1.19, 1.75, 3.70],
-                    [1, 1.55, 2.25, 4.65],
+                    [1., 1., 1., 1.30],
+                    [1., 1., 1.18, 2.50],
+                    [1., 1.25, 1.85, 4.10],
+                    [1., 1.25, 2.30, 6.40],
                 ])
             else:
                 Mv_table = np.array([
-                    [1, 1, 1, 1],
-                    [1, 1, 1.18, 1.18],
-                    [1, 1.19, 1.75, 1.75],
-                    [1, 1.55, 2.25, 2.25],
+                    [1., 1., 1., 1.],
+                    [1., 1., 1.18, 1.18],
+                    [1., 1.25, 1.85, 1.85],
+                    [1., 1.37, 2.30, 2.30],
                 ])
 
             interp = RegularGridInterpolator(
@@ -2407,8 +2375,8 @@ def vs_nbcc_2020(row, seismic_hazard_params):
         return np.maximum(V_b, V_min)
 
     
-    vs_ns = flowchart_2015(lfrs_ns)
-    vs_ew = flowchart_2015(lfrs_ew)
+    vs_ns = flowchart_2020(lfrs_ns)
+    vs_ew = flowchart_2020(lfrs_ew)
 
     # unsupported features:
     # cantilever-style walls
