@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from openquake.vmtk.units import units
+from scipy.interpolate import RegularGridInterpolator
 
 NBCC_YEARS = np.array([1941, 1953, 1960, 1965, 1970, 1975, 1977, 1980, 1985, 1990, 1995, 2005, 2010, 2015, 2020, 2025])
 
@@ -40,22 +41,26 @@ def determine_effective_nbcc_year(original_year_series, seismic_upgrade_year_ser
 
     return latest_code_year(effective_construction_year)
 
-def determine_code_strength(row):
+def determine_code_strength(row, **kwargs):
     '''
     Dispatcher function to redirect to the correct code calculation
     function based on the "effective_nbcc_year" function.
 
     Dispatcher is located at global variable NBCC_VS_CALCULATORS
-    
+
+    Returns
+    -------
+
+    tuple: (vs_ns, vs_ew)
     '''
     try:
-        return NBCC_VS_CALCULATORS[row["effective_nbcc_year"]](row)
+        return NBCC_VS_CALCULATORS[row["effective_nbcc_year"]](row, **kwargs)
     except KeyError:
         raise ValueError(
             f"Unsupported code year: {row['effective_nbcc_year']}"
         )
 
-def vs_nbcc_1941(row):
+def vs_nbcc_1941(row, seismic_hazard_params):
     '''
     Calculate the lateral force coefficient based on NBC1941, as outlined
     in Appendix H.
@@ -83,6 +88,9 @@ def vs_nbcc_1941(row):
     row["Seismic Force Resisting System in the East-West Direction"]: str
         modern-classification of the e-w lateral force resisting system in the 
         NRC Seismic Evaluation Guidelines typologies
+
+    seismic_hazard_params: dict
+        This edition of NBCC does not recognize location-specific hazard
 
     Returns
     -------
@@ -120,9 +128,9 @@ def vs_nbcc_1941(row):
     # ornamentations
     # towers, tanks, chimneys, smokestacks, penthouses
 
-    return vs_ns, vs_ew
+    return np.float64(vs_ns), np.float64(vs_ew)
 
-def vs_nbcc_1953(row, seismic_zone=3):
+def vs_nbcc_1953(row, seismic_hazard_params):
     '''
     Calculate the lateral force coefficient based on NBC1953, as outlined
     in Section 4.1.2.9
@@ -146,9 +154,13 @@ def vs_nbcc_1953(row, seismic_zone=3):
     row["Floors Above Grade"]: numeric
         number of stories above grade
 
-
-    seismic_zone: int
-        Seismic Zone as determined by the 1952 map in Sec 2.11 of NBC 1953
+    seismic_hazard_params: dict
+        1953 used seismic zone as the location-specific parameter.
+        Thus, the hazard dictionary
+            requires the following inputs:
+        
+        seismic_zone: int
+            Seismic Zone as determined by the 1952 map in Sec 2.11 of NBC 1953
             Zone 3: Western British Columbia (Victoria, Vancouver), St. Lawrence River
             Valley (Quebec City, Montreal), Ottawa River Valley (Ottawa)
             Zone 2: Maritime (Eastern Newfoundland, New Brunswick, Nova Scotia, PEI)
@@ -169,6 +181,8 @@ def vs_nbcc_1953(row, seismic_zone=3):
     number_of_stories = row["Floors Above Grade"]
     lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
     lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
+    
+    seismic_zone = seismic_hazard_params['seismic_zone']
 
     # assume that all "frame-with-wall" system have a non load-bearing wall
     # bearing walls, non-bearing walls, free-standing masonry walls
@@ -191,15 +205,15 @@ def vs_nbcc_1953(row, seismic_zone=3):
     # towers, tanks, chimneys, smokestacks, penthouses
 
     if seismic_zone == 3:
-        return 4*vs_ns, 4*vs_ew
+        return np.float64(4*vs_ns), np.float64(4*vs_ew)
     elif seismic_zone == 2:
-        return 2*vs_ns, 2*vs_ew
+        return np.float64(2*vs_ns), np.float64(2*vs_ew)
     elif seismic_zone == 1:
-        return vs_ns, vs_ew
+        return np.float64(vs_ns), np.float64(vs_ew)
     else:
-        return 0.0, 0.0
+        return np.float64(0.0), np.float64(0.0)
 
-def vs_nbcc_1965(row, seismic_zone=3):
+def vs_nbcc_1965(row, seismic_hazard_params):
     '''
     Calculate the lateral force coefficient based on NBC1965, as outlined
     in Section 4.1.3.15.
@@ -235,8 +249,11 @@ def vs_nbcc_1965(row, seismic_zone=3):
     row["Site Class"]: str
         modern-assessed site class of the building
 
-    seismic_zone: int
-        Seismic Zone as determined by the 1952 map in Sec 2.11 of NBC 1953
+    seismic_hazard_params: dict
+        The hazard dictionary requires the following inputs:
+        
+        seismic_zone: int
+            Seismic Zone as determined by the 1952 map in Sec 2.11 of NBC 1953
             Zone 3: Western British Columbia (Victoria, Vancouver), St. Lawrence River
             Valley (Quebec City, Montreal), Ottawa River Valley (Ottawa)
             Zone 2: Maritime (Eastern Newfoundland, New Brunswick, Nova Scotia, PEI)
@@ -257,6 +274,8 @@ def vs_nbcc_1965(row, seismic_zone=3):
     site_class = row["Site Class"]
     lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
     lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
+
+    seismic_zone = seismic_hazard_params['seismic_zone']
 
     # "buildings framed in steel or reinforced concrete with moment resisting
     # connections, with floors sufficiently strong and stiff to distribute 
@@ -297,19 +316,19 @@ def vs_nbcc_1965(row, seismic_zone=3):
 
     # in 1965, this was renamed to R factor
     if seismic_zone == 3:
-        return 4*vs_ns, 4*vs_ew
+        return np.float64(4*vs_ns), np.float64(4*vs_ew)
     elif seismic_zone == 2:
-        return 2*vs_ns, 2*vs_ew
+        return np.float64(2*vs_ns), np.float64(2*vs_ew)
     elif seismic_zone == 1:
-        return vs_ns, vs_ew
+        return np.float64(vs_ns), np.float64(vs_ew)
     else:
-        return 0.0, 0.0
+        return np.float64(0.0), np.float64(0.0)
 
     # TODO: 1965 NBCC required that if the building had significant
     # torsional irregularity, design computed torsional moment would
     # be doubled
 
-def vs_nbcc_1970(row, seismic_zone=3):
+def vs_nbcc_1970(row, seismic_hazard_params):
     '''
     Calculate the lateral force coefficient based on NBC1970, as outlined
     in Section 4.1.7.
@@ -351,7 +370,10 @@ def vs_nbcc_1970(row, seismic_zone=3):
     row["Site Class"]: str
         modern-assessed site class of the building
 
-    seismic_zone: int
+    seismic_hazard_params: dict
+        The hazard dictionary requires the following inputs:
+        
+        seismic_zone: int
         Seismic region as determined by the map in the Table of Climactic Data of NBC 1970
             Zone 3: Western British Columbia (Victoria, Vancouver), upper St. Lawrence River
             Valley (Quebec City)
@@ -375,6 +397,8 @@ def vs_nbcc_1970(row, seismic_zone=3):
     bldg_height = row["Building Height (Total Height Above Ground (m) to Roof Slab)"]*units.m
     lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
     lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
+
+    seismic_zone = seismic_hazard_params['seismic_zone']
 
     # TODO: temporarily stand-in square building
     D_ft = (plan_area**0.5)/units.ft # divide to go from m to ft
@@ -448,7 +472,7 @@ def vs_nbcc_1970(row, seismic_zone=3):
     else:
         return 0.0, 0.0
 
-def vs_nbcc_1975(row, seismic_zone=3):
+def vs_nbcc_1975(row, seismic_hazard_params):
     '''
     Calculate the lateral force coefficient based on NBC1975, as outlined
     in Section 4.1.7.
@@ -496,15 +520,18 @@ def vs_nbcc_1975(row, seismic_zone=3):
     row["effective_code_year"]: int
         Effective NBCC year. If = 1980, redirect to correct S_factor
 
-    seismic_zone: int
-        Seismic region as determined by the map in the Table of Climactic Data of NBC 1975
+    seismic_hazard_params: dict
+        The hazard dictionary requires the following inputs:
+        
+        seismic_zone: int
+        Seismic region as determined by the map in the Table of Climactic Data of NBC 1970
             Zone 3: Western British Columbia (Victoria, Vancouver), upper St. Lawrence River
             Valley (Quebec City)
             Zone 2: Maritime (Eastern Newfoundland, New Brunswick, Nova Scotia, PEI)
             Ottawa River Valley (Ottawa), lower St. Lawrence River (Montreal)
             Zone 1:  Great Lakes (Toronto GTA), Upper Quebec, Eastern British Columbia  
             Zone 0: Upper Ontario, Canadian Rockies (Calgary), Prairies (Edmonton, 
-            Saskatoon, Winnipeg, Regina),
+            Saskatoon, Winnipeg, Regina)
 
     Returns
     -------
@@ -523,6 +550,8 @@ def vs_nbcc_1975(row, seismic_zone=3):
 
     # redirect to 1980 S_factor update
     code_year = row["effective_nbcc_year"]
+
+    seismic_zone = seismic_hazard_params['seismic_zone']
 
     # TODO: temporarily stand-in square building
     D_ft = (plan_area**0.5)/units.ft # divide to go from m to ft
@@ -659,7 +688,7 @@ def vs_nbcc_1975(row, seismic_zone=3):
     # torsional irregularity, design computed torsional moment would
     # be doubled    
 
-def vs_nbcc_1985(row, seismic_hazard_params=None):
+def vs_nbcc_1985(row, seismic_hazard_params):
     '''
     Calculate the lateral force coefficient based on NBC1985, as outlined
     in Section 4.1.9. 
@@ -696,7 +725,7 @@ def vs_nbcc_1985(row, seismic_hazard_params=None):
     row["Site Class"]: str
         modern-assessed site class of the building
 
-    seismic_hazard_params: None, Dictionary
+    seismic_hazard_params: Dictionary
         1985 NBCC introduced finer control for hazard, acknowledging differences in spectral
         shape and probabilistically aiming for a 495-year return period. Thus, the hazard dictionary
         requires the following inputs:
@@ -705,7 +734,6 @@ def vs_nbcc_1985(row, seismic_hazard_params=None):
         - v: zonal velocity ratio
         (zonal acceleration ratio is implicitly used in S factor)
 
-        If None is provided, the assumed values are for Vancouver, British Columbia
 
     Returns
     -------
@@ -722,15 +750,9 @@ def vs_nbcc_1985(row, seismic_hazard_params=None):
     lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
     lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
 
-    # defaults for Vancouver
-    if seismic_hazard_params is None:
-        Za = 4
-        Zv = 4
-        v_ratio = 0.20
-    else:
-        Za = seismic_hazard_params['Za']
-        Zv = seismic_hazard_params['Zv']
-        v_ratio = seismic_hazard_params['v']
+    Za = seismic_hazard_params['Za']
+    Zv = seismic_hazard_params['Zv']
+    v_ratio = seismic_hazard_params['v_ratio']
 
     # exception statement
     if (Zv == 0) and (Za > 0):
@@ -893,7 +915,7 @@ def vs_nbcc_1985(row, seismic_hazard_params=None):
     # TODO: 1985 NBCC required that if the building had significant
     # torsional irregularity, dynamic analysis is required to design
     
-def vs_nbcc_1990(row, seismic_hazard_params=None):
+def vs_nbcc_1990(row, seismic_hazard_params):
     '''
     Calculate the lateral force coefficient based on NBC1990, as outlined
     in Section 4.1.9. 
@@ -930,7 +952,7 @@ def vs_nbcc_1990(row, seismic_hazard_params=None):
     row["Site Class"]: str
         modern-assessed site class of the building
 
-    seismic_hazard_params: None, Dictionary
+    seismic_hazard_params: Dictionary
         1990 NBCC introduced finer control for hazard, acknowledging differences in spectral
         shape and probabilistically aiming for a 495-year return period. Thus, the hazard dictionary
         requires the following inputs:
@@ -938,8 +960,6 @@ def vs_nbcc_1990(row, seismic_hazard_params=None):
         - Zv: seismic velocity zone
         - v: zonal velocity ratio
         (zonal acceleration ratio is implicitly used in S factor)
-
-        If None is provided, the assumed values are for Vancouver, British Columbia
 
     Returns
     -------
@@ -955,16 +975,10 @@ def vs_nbcc_1990(row, seismic_hazard_params=None):
     bldg_height = row["Building Height (Total Height Above Ground (m) to Roof Slab)"]*units.m
     lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
     lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
-
-    # defaults for Vancouver
-    if seismic_hazard_params is None:
-        Za = 4
-        Zv = 4
-        v_ratio = 0.20
-    else:
-        Za = seismic_hazard_params['Za']
-        Zv = seismic_hazard_params['Zv']
-        v_ratio = seismic_hazard_params['v']
+    
+    Za = seismic_hazard_params['Za']
+    Zv = seismic_hazard_params['Zv']
+    v_ratio = seismic_hazard_params['v_ratio']
 
     # exception statement
     if (Zv == 0) and (Za > 0):
@@ -1119,7 +1133,7 @@ def vs_nbcc_1990(row, seismic_hazard_params=None):
     # TODO: 1990 NBCC also imposed design drift limits of 0.01 for post-disaster
     # and 0.02 for other buildings
     
-def vs_nbcc_1995(row, seismic_hazard_params=None):
+def vs_nbcc_1995(row, seismic_hazard_params):
     '''
     Calculate the lateral force coefficient based on NBC1995, as outlined
     in Section 4.1.9. This edition is largely similar to NBC 1990, with
@@ -1157,7 +1171,7 @@ def vs_nbcc_1995(row, seismic_hazard_params=None):
     row["Site Class"]: str
         modern-assessed site class of the building
 
-    seismic_hazard_params: None, Dictionary
+    seismic_hazard_params: Dictionary
         1990 NBCC introduced finer control for hazard, acknowledging differences in spectral
         shape and probabilistically aiming for a 495-year return period. Thus, the hazard dictionary
         requires the following inputs:
@@ -1165,8 +1179,6 @@ def vs_nbcc_1995(row, seismic_hazard_params=None):
         - Zv: seismic velocity zone
         - v: zonal velocity ratio
         (zonal acceleration ratio is implicitly used in S factor)
-
-        If None is provided, the assumed values are for Vancouver, British Columbia
 
     Returns
     -------
@@ -1182,17 +1194,11 @@ def vs_nbcc_1995(row, seismic_hazard_params=None):
     bldg_height = row["Building Height (Total Height Above Ground (m) to Roof Slab)"]*units.m
     lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
     lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
-    year_of_construction = row["effective_nbcc_year"]
-
-    # defaults for Vancouver
-    if seismic_hazard_params is None:
-        Za = 4
-        Zv = 4
-        v_ratio = 0.20
-    else:
-        Za = seismic_hazard_params['Za']
-        Zv = seismic_hazard_params['Zv']
-        v_ratio = seismic_hazard_params['v']
+    code_year = row["effective_nbcc_year"]
+    
+    Za = seismic_hazard_params['Za']
+    Zv = seismic_hazard_params['Zv']
+    v_ratio = seismic_hazard_params['v_ratio']
 
     # exception statement
     if (Zv == 0) and (Za > 0):
@@ -1250,7 +1256,7 @@ def vs_nbcc_1995(row, seismic_hazard_params=None):
     # frames are assumed to be a nominal ductility one
     # i.e. precast = nominal ductility RC frame
     flexure_controlled = number_of_stories > 3
-    built_after_1995 = year_of_construction >= 1995
+    built_after_1995 = code_year >= 1995
     R_lookup_table = {
         "WLF-P9": 1.5, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections
         "WLF": 1.5, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections
@@ -1354,7 +1360,7 @@ def vs_nbcc_1995(row, seismic_hazard_params=None):
     # TODO: 1995 NBCC also imposed design drift limits of 0.01 for post-disaster
     # and 0.02 for other buildings
 
-def vs_nbcc_2005(row, seismic_hazard_params=None):
+def vs_nbcc_2005(row, seismic_hazard_params):
     '''
     Calculate the lateral force coefficient based on NBC 2005, as outlined
     in Section 4.1.8.
@@ -1391,14 +1397,12 @@ def vs_nbcc_2005(row, seismic_hazard_params=None):
     row["Site Class"]: str
         modern-assessed site class of the building
 
-    seismic_hazard_params: None, Dictionary
+    seismic_hazard_params: Dictionary
         2005 NBCC introduced a site-specific response spectral acceleration table
         meant to implement a uniform hazard spectrum aimed at a 2% in 50 year (2475 rp)
         hazard.
         - Sa_0p2, Sa_0p5, Sa_1p0, Sa_2p0: 5% damped Sa at periods
         - Sa_pga: peak ground acceleration
-
-        If None is provided, the assumed values are for Vancouver, British Columbia
 
     Returns
     -------
@@ -1413,32 +1417,23 @@ def vs_nbcc_2005(row, seismic_hazard_params=None):
     bldg_height = row["Building Height (Total Height Above Ground (m) to Roof Slab)"]*units.m
     lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
     lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
-    year_of_construction = row["effective_nbcc_year"]
+    code_year = row["effective_nbcc_year"]
 
-    # defaults for Vancouver (downtown)
-    # Vancouver (Granville & 41st) has different but near identical values
-    if seismic_hazard_params is None:
-        Sa_0p2 = 0.94
-        Sa_0p5 = 0.64
-        Sa_1p0 = 0.33
-        Sa_2p0 = 0.17
-        Sa_pga = 0.46
-    else:
-        Sa_0p2 = seismic_hazard_params['Sa_0p2']
-        Sa_0p5 = seismic_hazard_params['Sa_0p5']
-        Sa_1p0 = seismic_hazard_params['Sa_1p0']
-        Sa_2p0 = seismic_hazard_params['Sa_2p0']
-        Sa_pga = seismic_hazard_params['Sa_pga']
+    Sa_0p2 = seismic_hazard_params['Sa_0p2']
+    Sa_0p5 = seismic_hazard_params['Sa_0p5']
+    Sa_1p0 = seismic_hazard_params['Sa_1p0']
+    Sa_2p0 = seismic_hazard_params['Sa_2p0']
+    Sa_pga = seismic_hazard_params['Sa_pga']
 
     # lookup Fa using Sa(0.2) and site class
     # site class F needs in-depth geotechnical study
     Fa = np.interp(
-        Sa_0p2, FA_TABLE.index, FA_TABLE[site_class]
+        Sa_0p2, FA_TABLE_2005.index, FA_TABLE_2005[site_class]
     )
 
     # lookup Fv using Sa(1.0) and site class
     Fv = np.interp(
-        Sa_1p0, FV_TABLE.index, FV_TABLE[site_class]
+        Sa_1p0, FV_TABLE_2005.index, FV_TABLE_2005[site_class]
     )
 
 
@@ -1459,7 +1454,7 @@ def vs_nbcc_2005(row, seismic_hazard_params=None):
     # all frames not explicitly called out to be moment
     # frames are assumed to be a nominal ductility one
     # i.e. precast = nominal ductility RC frame
-    built_after_1995 = year_of_construction >= 1995
+    built_after_1995 = code_year >= 1995
 
     # ductility
     Rd_lookup_table = {
@@ -1567,14 +1562,14 @@ def vs_nbcc_2005(row, seismic_hazard_params=None):
         # importance factor
         I_factor = importance_factor
 
-        Vb = S_Tperiod * M_v * I_factor / (R_d * R_o)
+        V_b = S_Tperiod * M_v * I_factor / (R_d * R_o)
         V_min = S_2p0 * M_v * I_factor / (R_d * R_o)
 
         if R_d >= 1.5:
             V_max = 2/3* S_0p2 * I_factor / (R_d * R_o)
-            V_b = np.minimum(Vb, V_max)
+            V_b = np.minimum(V_b, V_max)
 
-        return np.maximum(Vb, V_min)
+        return np.maximum(V_b, V_min)
 
     
     vs_ns = flowchart_2005(lfrs_ns)
@@ -1594,7 +1589,7 @@ def vs_nbcc_2005(row, seismic_hazard_params=None):
     # required that these be inelastic drift limits (elastic_dx*R_d*R_o/I_e)
 
 
-def vs_nbcc_2010(row, seismic_hazard_params=None):
+def vs_nbcc_2010(row, seismic_hazard_params):
     '''
     Calculate the lateral force coefficient based on NBC 2010, as outlined
     in Section 4.1.8.
@@ -1631,14 +1626,12 @@ def vs_nbcc_2010(row, seismic_hazard_params=None):
     row["Site Class"]: str
         modern-assessed site class of the building
 
-    seismic_hazard_params: None, Dictionary
+    seismic_hazard_params: Dictionary
         2005 NBCC introduced a site-specific response spectral acceleration table
         meant to implement a uniform hazard spectrum aimed at a 2% in 50 year (2475 rp)
         hazard.
         - Sa_0p2, Sa_0p5, Sa_1p0, Sa_2p0: 5% damped Sa at periods
         - Sa_pga: peak ground acceleration
-
-        If None is provided, the assumed values are for Vancouver, British Columbia
 
     Returns
     -------
@@ -1653,32 +1646,23 @@ def vs_nbcc_2010(row, seismic_hazard_params=None):
     bldg_height = row["Building Height (Total Height Above Ground (m) to Roof Slab)"]*units.m
     lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
     lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
-    year_of_construction = row["effective_nbcc_year"]
+    code_year = row["effective_nbcc_year"]
 
-    # defaults for Vancouver (downtown)
-    # Vancouver (Granville & 41st) has different but near identical values
-    if seismic_hazard_params is None:
-        Sa_0p2 = 0.94
-        Sa_0p5 = 0.64
-        Sa_1p0 = 0.33
-        Sa_2p0 = 0.17
-        Sa_pga = 0.46
-    else:
-        Sa_0p2 = seismic_hazard_params['Sa_0p2']
-        Sa_0p5 = seismic_hazard_params['Sa_0p5']
-        Sa_1p0 = seismic_hazard_params['Sa_1p0']
-        Sa_2p0 = seismic_hazard_params['Sa_2p0']
-        Sa_pga = seismic_hazard_params['Sa_pga']
+    Sa_0p2 = seismic_hazard_params['Sa_0p2']
+    Sa_0p5 = seismic_hazard_params['Sa_0p5']
+    Sa_1p0 = seismic_hazard_params['Sa_1p0']
+    Sa_2p0 = seismic_hazard_params['Sa_2p0']
+    Sa_pga = seismic_hazard_params['Sa_pga']
 
     # lookup Fa using Sa(0.2) and site class
     # site class F needs in-depth geotechnical study
     Fa = np.interp(
-        Sa_0p2, FA_TABLE.index, FA_TABLE[site_class]
+        Sa_0p2, FA_TABLE_2005.index, FA_TABLE_2005[site_class]
     )
 
     # lookup Fv using Sa(1.0) and site class
     Fv = np.interp(
-        Sa_1p0, FV_TABLE.index, FV_TABLE[site_class]
+        Sa_1p0, FV_TABLE_2005.index, FV_TABLE_2005[site_class]
     )
 
 
@@ -1696,7 +1680,7 @@ def vs_nbcc_2010(row, seismic_hazard_params=None):
     # all frames not explicitly called out to be moment
     # frames are assumed to be a nominal ductility one
     # i.e. precast = nominal ductility RC frame
-    built_after_1995 = year_of_construction >= 1995
+    built_after_1995 = code_year >= 1995
 
     # ductility
     # 2010 added cold-formed steel category (and BRBs)
@@ -1813,14 +1797,14 @@ def vs_nbcc_2010(row, seismic_hazard_params=None):
         # importance factor
         I_factor = importance_factor
 
-        Vb = S_Tperiod * M_v * I_factor / (R_d * R_o)
+        V_b = S_Tperiod * M_v * I_factor / (R_d * R_o)
         V_min = S_2p0 * M_v * I_factor / (R_d * R_o)
 
         if R_d >= 1.5:
             V_max = 2/3* S_0p2 * I_factor / (R_d * R_o)
-            V_b = np.minimum(Vb, V_max)
+            V_b = np.minimum(V_b, V_max)
 
-        return np.maximum(Vb, V_min)
+        return np.maximum(V_b, V_min)
 
     
     vs_ns = flowchart_2010(lfrs_ns)
@@ -1833,6 +1817,607 @@ def vs_nbcc_2010(row, seismic_hazard_params=None):
     # floors and roofs acting as diaphragms
 
     return vs_ns, vs_ew
+
+def vs_nbcc_2015(row, seismic_hazard_params):
+    '''
+    Calculate the lateral force coefficient based on NBC 2015, as outlined
+    in Section 4.1.8.
+
+    The coefficient is NOT yet multiplied with the building weight. 
+
+    Distribution is later available in the same section.
+
+    Parameters
+    ----------
+    row: pd.Series
+        row of the inventory df
+
+    row["Seismic Force Resisting System in the North-South Direction"]: str
+        modern-classification of the n-s lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+
+    row["Seismic Force Resisting System in the East-West Direction"]: str
+        modern-classification of the e-w lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+
+    row["Ground Floor Plan Area (sq.m.)"]: numeric
+        Ground floor plan area in square metres, to identify dimension length
+    
+    row["Building Height (Total Height Above Ground (m) to Roof Slab)"]: numeric
+        Building height in metres. If not provided, will be estimated with 3.5m stories. 
+
+    row["Floors Above Grade"]: numeric
+        number of stories above grade
+
+    row['"Original" Building Importance Factor Ie']
+        Importance factor assigned to the building in its original design
+
+    row["Site Class"]: str
+        modern-assessed site class of the building
+
+    seismic_hazard_params: Dictionary
+        2015 NBCC added more seismic parameters
+        - Sa_0p2, Sa_0p5, Sa_1p0, Sa_2p0, Sa_5p0, Sa_10p0: 5% damped Sa at periods
+        - Sa_pga: peak ground acceleration
+        - Sa_pgv: peak ground velocity (misnomer but to keep consistency)
+
+
+    Returns
+    -------
+    vs_ns: float
+        Lateral force coefficient in the n-s
+    vs_ew: float
+        Lateral force coefficient in the e-w
+    '''
+    number_of_stories = row["Floors Above Grade"]
+    importance_factor = row['"Original" Building Importance Factor Ie']
+    site_class = row["Site Class"]
+    bldg_height = row["Building Height (Total Height Above Ground (m) to Roof Slab)"]*units.m
+    lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
+    lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
+    code_year = row["effective_nbcc_year"]
+
+    Sa_0p2 = seismic_hazard_params['Sa_0p2']
+    Sa_0p5 = seismic_hazard_params['Sa_0p5']
+    Sa_1p0 = seismic_hazard_params['Sa_1p0']
+    Sa_2p0 = seismic_hazard_params['Sa_2p0']
+    Sa_5p0 = seismic_hazard_params['Sa_5p0']
+    Sa_10p0 =seismic_hazard_params['Sa_10p0']
+    Sa_pga = seismic_hazard_params['Sa_pga']
+    Sa_pgv = seismic_hazard_params['Sa_pgv']
+
+    # lookup Fa using PGA_ref and site class
+    # site class F needs in-depth geotechnical study
+    if Sa_0p2/Sa_pga < 2.0:
+        PGA_ref = 0.8 * Sa_pga
+    else:
+        PGA_ref = Sa_pga
+
+    F_0p2 = np.interp(
+        PGA_ref, F_0P2_TABLE_2015.index, F_0P2_TABLE_2015[site_class]
+    )
+    F_0p5 = np.interp(
+        PGA_ref, F_0P5_TABLE_2015.index, F_0P5_TABLE_2015[site_class]
+    )
+    F_1p0 = np.interp(
+        PGA_ref, F_1P0_TABLE_2015.index, F_1P0_TABLE_2015[site_class]
+    )
+    F_2p0 = np.interp(
+        PGA_ref, F_2P0_TABLE_2015.index, F_2P0_TABLE_2015[site_class]
+    )
+    F_5p0 = np.interp(
+        PGA_ref, F_5P0_TABLE_2015.index, F_5P0_TABLE_2015[site_class]
+    )
+    F_10p0 = np.interp(
+        PGA_ref, F_10P0_TABLE_2015.index, F_10P0_TABLE_2015[site_class]
+    )
+    F_pga = np.interp(
+        PGA_ref, F_PGA_TABLE_2015.index, F_PGA_TABLE_2015[site_class]
+    )
+    F_pgv = np.interp(
+        PGA_ref, F_PGV_TABLE_2015.index, F_PGV_TABLE_2015[site_class]
+    )
+
+    # TODO: temporarily estimate bldg_height if not available
+    # estimate as 3.5m stories
+    if np.isnan(bldg_height):
+        h_n = 3.5 * units.m * number_of_stories
+    else:
+        h_n = bldg_height * units.m
+
+    # SMF and SBF values are assuming ductile frames
+    # a lesser, intermediate "nominal" ductility form is 
+    # also available 
+
+    # all frames not explicitly called out to be moment
+    # frames are assumed to be a nominal ductility one
+    # i.e. precast = nominal ductility RC frame
+
+    # allowing RM to be upgraded to highest ductility if they are built to this code-year
+    built_after_2015 = code_year >= 2015
+
+    # ductility
+    # 2010 added cold-formed steel category (and BRBs)
+    Rd_lookup_table = {
+        "WLF-P9": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections or shear walls
+        "WLF": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections or shear walls
+        "WPB": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections or shear walls
+        "SMF": 5.0, # ductile mrf
+        "SBF": 3.0, # ductile braced frame
+        "SLF": 1.0, # non-ductile steel frame assumed, other category
+        "SCW": 2.0, # assuming wall controls, designed to moderate ductility
+        "SIW": 2.0, # assuming wall controls, designed to moderate ductility
+        "CMF": 4.0, # ductile mrf
+        "CSW": 3.5, # ductile shear wall
+        "CIW": 2.0, # assuming wall controls, designed to moderate ductility
+        "PCW": 2.5, # nominal ductility
+        "PCF1": 2.0, # assuming wall controls, designed to moderate ductility
+        "PCF2": 2.5, # nominal ductility frame
+        "RML": 3.0 if built_after_2015 else 1.5, # "ductile" RM depending on construction year
+        "RMC": 3.0 if built_after_2015 else 1.5, # "ductile" RM depending on construction year 
+        "URM": 1.0,
+        "CFS1": 2.5, # wood-only shear walls with cold-formed steel (no gypsum)
+        "CFS2": 1.9, # "limited ductility" diagonal strap concentrically braced wall (better than conventional)
+    }
+    
+    # overstrength
+    Ro_lookup_table = {
+        "WLF-P9": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections
+        "WLF": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections
+        "WPB": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections
+        "SMF": 1.5, # ductile mrf
+        "SBF": 1.3, # ductile braced frame
+        "SLF": 1.0, # non-ductile steel frame assumed, other category
+        "SCW": 1.4, # assuming wall controls, moderate ductility
+        "SIW": 1.4, # assuming wall controls, moderate ductility
+        "CMF": 1.7, # ductile mrf
+        "CSW": 1.6, # ductile shear wall
+        "CIW": 1.4, # assuming wall controls, moderate ductility
+        "PCW": 1.4, # nominal ductility
+        "PCF1": 1.4, # assuming wall controls, moderate ductility
+        "PCF2": 1.4, # nominal ductility frame
+        "RML": 1.5, # 
+        "RMC": 1.5, # 
+        "URM": 1.0,
+        "CFS1": 1.7, # wood-only shear walls with cold-formed steel (no gypsum)
+        "CFS2": 1.3, # "limited ductility" diagonal strap concentrically braced wall (better than conventional)
+    }
+
+    # ductile coupled walls is assumed to be classified as "CSW", which is ductile shear wall as it is the more conservative one
+    # it is assumed that RM construction 1995 and after are "nominal ductility"
+
+    def flowchart_2015(lfrs):
+
+        R_d = Rd_lookup_table[lfrs]
+        R_o = Ro_lookup_table[lfrs]
+
+        # period estimation, using the more detailed moment-frame
+
+        # 2015 has a specific estimation to allow for the lengthening
+        # of periods for single-story buildings with steel deck or wood roof diaphragms
+        # presumably for warehouse/gathering hall type buildings. The lengthening 
+        # is based on the shortest bay length
+        # TODO: currently omitted
+
+        if lfrs == 'SMF':
+            T_period = 0.085*(h_n**0.75)
+        elif lfrs == 'CMF':
+            T_period = 0.075*(h_n**0.75)
+        elif lfrs == 'SBF':
+            T_period = 0.025*h_n
+        else:
+            T_period = 0.05*(h_n**0.75)
+
+        # 4.1.8.4 Sentence 6, design spectral acceleration
+        T_anchor = np.array([0.2, 0.5, 1.0, 2.0, 5.0, 10.0])
+        S_T_functions = np.array([
+            np.maximum(F_0p2*Sa_0p2, F_0p5*Sa_0p5),
+            F_0p5*Sa_0p5,
+            F_1p0*Sa_1p0,
+            F_2p0*Sa_2p0,
+            F_5p0*Sa_5p0,
+            F_10p0*Sa_10p0,
+        ])
+
+        S_Tperiod = np.interp(T_period, T_anchor, S_T_functions)
+        S_0p2 = np.interp(0.2, T_anchor, S_T_functions)
+        S_0p5 = np.interp(0.5, T_anchor, S_T_functions)
+        S_2p0 = np.interp(2.0, T_anchor, S_T_functions)
+        S_4p0 = np.interp(4.0, T_anchor, S_T_functions)
+
+        # M_v Table 4.1.8.11
+        def M_v_decision_tree(Sa_ratio, lfrs_name):
+            '''
+            Given Sa(0.2)/Sa(5.0) and the LFRS
+            
+            Return the two bound values for T_a < 1.0 and T_a > 2.0
+            '''
+            S_ratio_Mv_anchors = np.array([5.0, 20.0, 40.0, 65.0])
+            Ta_Mv_anchors = np.array([0.5, 1.0, 2.0, 5.0])
+
+            if lfrs_name in ['SMF', 'CMF']:
+                Mv_table = np.array([
+                    [1, 1, 1, 1],
+                    [1, 1, 1, 1],
+                    [1, 1, 1, 1],
+                    [1, 1, 1.03, 1.03],
+                ])
+            elif lfrs_name in ['SBF']:
+                Mv_table = np.array([
+                    [1, 1, 1, 1],
+                    [1, 1, 1, 1],
+                    [1, 1, 1, 1],
+                    [1, 1.04, 1.07, 1.07],
+                ])
+            # walls and wall-frame systems
+            elif lfrs_name in ['SCW', 'SIW', 'CSW', 'CIW', 'PCW', 'PCF1', 'RML', 'RMC', 'URM', 'CFS1', 'CFS2']:
+                Mv_table = np.array([
+                    [1, 1, 1, 1.25],
+                    [1, 1, 1.18, 2.30],
+                    [1, 1.19, 1.75, 3.70],
+                    [1, 1.55, 2.25, 4.65],
+                ])
+            else:
+                Mv_table = np.array([
+                    [1, 1, 1, 1],
+                    [1, 1, 1.18, 1.18],
+                    [1, 1.19, 1.75, 1.75],
+                    [1, 1.55, 2.25, 2.25],
+                ])
+
+            interp = RegularGridInterpolator(
+                (S_ratio_Mv_anchors, Ta_Mv_anchors),
+                Mv_table,
+                bounds_error=False,
+                fill_value=None,
+            )
+
+            # clip at bounds (no extrapolation)
+            Sa_ratio = np.clip(Sa_ratio, S_ratio_Mv_anchors[0], S_ratio_Mv_anchors[-1])
+            # walls clip at T=4.0s, but use the 5.0 interpolation bound
+            if lfrs_name in ['SCW', 'SIW', 'CSW', 'CIW', 'PCW', 'PCF1', 'RML', 'RMC', 'URM', 'CFS1', 'CFS2']:
+                T_a_Mv = np.clip(T_period, Ta_Mv_anchors[0], 4.0)
+            else:
+                T_a_Mv = np.clip(T_period, Ta_Mv_anchors[0], Ta_Mv_anchors[-1])
+
+            return interp((Sa_ratio, T_a_Mv))
+        
+        M_v = M_v_decision_tree(Sa_0p2/Sa_5p0, lfrs)
+        
+        # importance factor
+        I_factor = importance_factor
+
+        V_b = S_Tperiod * M_v * I_factor / (R_d * R_o)
+        # wall and wall-frame minimums:
+        if lfrs in ['SCW', 'SIW', 'CSW', 'CIW', 'PCW', 'PCF1', 'RML', 'RMC', 'URM', 'CFS1', 'CFS2']:
+            V_min = S_4p0 * M_v * I_factor / (R_d * R_o)
+        # moment frames, braced frames and other systems
+        else:
+            V_min = S_2p0 * M_v * I_factor / (R_d * R_o)
+
+        # has an exception for F sites, but we have None
+        if R_d >= 1.5:
+            V_max = 2/3* S_0p2 * I_factor / (R_d * R_o)
+            V_b = np.minimum(V_b, V_max)
+
+            V_max = S_0p5 * I_factor / (R_d * R_o)
+            V_b = np.minimum(V_b, V_max)
+
+        return np.maximum(V_b, V_min)
+
+    
+    vs_ns = flowchart_2015(lfrs_ns)
+    vs_ew = flowchart_2015(lfrs_ew)
+
+    # unsupported features:
+    # cantilever-style walls
+    # ornamentations
+    # towers, tanks, chimneys, smokestacks, penthouses
+    # floors and roofs acting as diaphragms
+
+    return vs_ns, vs_ew
+
+def vs_nbcc_2020(row, seismic_hazard_params):
+    '''
+    Calculate the lateral force coefficient based on NBC 2020, as outlined
+    in Section 4.1.8.
+
+    The coefficient is NOT yet multiplied with the building weight. 
+
+    Distribution is later available in the same section.
+
+    Parameters
+    ----------
+    row: pd.Series
+        row of the inventory df
+
+    row["Seismic Force Resisting System in the North-South Direction"]: str
+        modern-classification of the n-s lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+
+    row["Seismic Force Resisting System in the East-West Direction"]: str
+        modern-classification of the e-w lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+
+    row["Ground Floor Plan Area (sq.m.)"]: numeric
+        Ground floor plan area in square metres, to identify dimension length
+    
+    row["Building Height (Total Height Above Ground (m) to Roof Slab)"]: numeric
+        Building height in metres. If not provided, will be estimated with 3.5m stories. 
+
+    row["Floors Above Grade"]: numeric
+        number of stories above grade
+
+    row['"Original" Building Importance Factor Ie']
+        Importance factor assigned to the building in its original design
+
+    row["Site Class"]: str
+        modern-assessed site class of the building
+
+    seismic_hazard_params: Dictionary
+        2015 NBCC added more seismic parameters
+        - Sa_0p2, Sa_0p5, Sa_1p0, Sa_2p0, Sa_5p0, Sa_10p0: 5% damped Sa at periods
+        - Sa_pga: peak ground acceleration
+        - Sa_pgv: peak ground velocity (misnomer but to keep consistency)
+
+
+    Returns
+    -------
+    vs_ns: float
+        Lateral force coefficient in the n-s
+    vs_ew: float
+        Lateral force coefficient in the e-w
+    '''
+    number_of_stories = row["Floors Above Grade"]
+    importance_factor = row['"Original" Building Importance Factor Ie']
+    site_class = row["Site Class"]
+    bldg_height = row["Building Height (Total Height Above Ground (m) to Roof Slab)"]*units.m
+    lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
+    lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
+    code_year = row["effective_nbcc_year"]
+
+    Sa_0p2 = seismic_hazard_params['Sa_0p2']
+    Sa_0p5 = seismic_hazard_params['Sa_0p5']
+    Sa_1p0 = seismic_hazard_params['Sa_1p0']
+    Sa_2p0 = seismic_hazard_params['Sa_2p0']
+    Sa_5p0 = seismic_hazard_params['Sa_5p0']
+    Sa_10p0 =seismic_hazard_params['Sa_10p0']
+    Sa_pga = seismic_hazard_params['Sa_pga']
+    Sa_pgv = seismic_hazard_params['Sa_pgv']
+
+    # lookup Fa using PGA_ref and site class
+    # site class F needs in-depth geotechnical study
+    if Sa_0p2/Sa_pga < 2.0:
+        PGA_ref = 0.8 * Sa_pga
+    else:
+        PGA_ref = Sa_pga
+
+    F_0p2 = np.interp(
+        PGA_ref, F_0P2_TABLE_2015.index, F_0P2_TABLE_2015[site_class]
+    )
+    F_0p5 = np.interp(
+        PGA_ref, F_0P5_TABLE_2015.index, F_0P5_TABLE_2015[site_class]
+    )
+    F_1p0 = np.interp(
+        PGA_ref, F_1P0_TABLE_2015.index, F_1P0_TABLE_2015[site_class]
+    )
+    F_2p0 = np.interp(
+        PGA_ref, F_2P0_TABLE_2015.index, F_2P0_TABLE_2015[site_class]
+    )
+    F_5p0 = np.interp(
+        PGA_ref, F_5P0_TABLE_2015.index, F_5P0_TABLE_2015[site_class]
+    )
+    F_10p0 = np.interp(
+        PGA_ref, F_10P0_TABLE_2015.index, F_10P0_TABLE_2015[site_class]
+    )
+    F_pga = np.interp(
+        PGA_ref, F_PGA_TABLE_2015.index, F_PGA_TABLE_2015[site_class]
+    )
+    F_pgv = np.interp(
+        PGA_ref, F_PGV_TABLE_2015.index, F_PGV_TABLE_2015[site_class]
+    )
+
+    # TODO: temporarily estimate bldg_height if not available
+    # estimate as 3.5m stories
+    if np.isnan(bldg_height):
+        h_n = 3.5 * units.m * number_of_stories
+    else:
+        h_n = bldg_height * units.m
+
+    # SMF and SBF values are assuming ductile frames
+    # a lesser, intermediate "nominal" ductility form is 
+    # also available 
+
+    # all frames not explicitly called out to be moment
+    # frames are assumed to be a nominal ductility one
+    # i.e. precast = nominal ductility RC frame
+
+    # allowing RM to be upgraded to highest ductility if they are built to this code-year
+    built_after_2015 = code_year >= 2015
+
+    # ductility
+    # 2010 added cold-formed steel category (and BRBs)
+    Rd_lookup_table = {
+        "WLF-P9": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections or shear walls
+        "WLF": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections or shear walls
+        "WPB": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections or shear walls
+        "SMF": 5.0, # ductile mrf
+        "SBF": 3.0, # ductile braced frame
+        "SLF": 1.0, # non-ductile steel frame assumed, other category
+        "SCW": 2.0, # assuming wall controls, designed to moderate ductility
+        "SIW": 2.0, # assuming wall controls, designed to moderate ductility
+        "CMF": 4.0, # ductile mrf
+        "CSW": 3.5, # ductile shear wall
+        "CIW": 2.0, # assuming wall controls, designed to moderate ductility
+        "PCW": 2.5, # nominal ductility
+        "PCF1": 2.0, # assuming wall controls, designed to moderate ductility
+        "PCF2": 2.5, # nominal ductility frame
+        "RML": 3.0 if built_after_2015 else 1.5, # "ductile" RM depending on construction year
+        "RMC": 3.0 if built_after_2015 else 1.5, # "ductile" RM depending on construction year 
+        "URM": 1.0,
+        "CFS1": 2.5, # wood-only shear walls with cold-formed steel (no gypsum)
+        "CFS2": 1.9, # "limited ductility" diagonal strap concentrically braced wall (better than conventional)
+    }
+    
+    # overstrength
+    Ro_lookup_table = {
+        "WLF-P9": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections
+        "WLF": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections
+        "WPB": 1.0, # assuming CAN/CSA-O86.1-M compliant, but not ductile connections
+        "SMF": 1.5, # ductile mrf
+        "SBF": 1.3, # ductile braced frame
+        "SLF": 1.0, # non-ductile steel frame assumed, other category
+        "SCW": 1.4, # assuming wall controls, moderate ductility
+        "SIW": 1.4, # assuming wall controls, moderate ductility
+        "CMF": 1.7, # ductile mrf
+        "CSW": 1.6, # ductile shear wall
+        "CIW": 1.4, # assuming wall controls, moderate ductility
+        "PCW": 1.4, # nominal ductility
+        "PCF1": 1.4, # assuming wall controls, moderate ductility
+        "PCF2": 1.4, # nominal ductility frame
+        "RML": 1.5, # 
+        "RMC": 1.5, # 
+        "URM": 1.0,
+        "CFS1": 1.7, # wood-only shear walls with cold-formed steel (no gypsum)
+        "CFS2": 1.3, # "limited ductility" diagonal strap concentrically braced wall (better than conventional)
+    }
+
+    # ductile coupled walls is assumed to be classified as "CSW", which is ductile shear wall as it is the more conservative one
+    # it is assumed that RM construction 1995 and after are "nominal ductility"
+
+    def flowchart_2015(lfrs):
+
+        R_d = Rd_lookup_table[lfrs]
+        R_o = Ro_lookup_table[lfrs]
+
+        # period estimation, using the more detailed moment-frame
+
+        # 2015 has a specific estimation to allow for the lengthening
+        # of periods for single-story buildings with steel deck or wood roof diaphragms
+        # presumably for warehouse/gathering hall type buildings. The lengthening 
+        # is based on the shortest bay length
+        # TODO: currently omitted
+
+        if lfrs == 'SMF':
+            T_period = 0.085*(h_n**0.75)
+        elif lfrs == 'CMF':
+            T_period = 0.075*(h_n**0.75)
+        elif lfrs == 'SBF':
+            T_period = 0.025*h_n
+        else:
+            T_period = 0.05*(h_n**0.75)
+
+        # 4.1.8.4 Sentence 6, design spectral acceleration
+        # 2020 directly calculated site values rather than using 
+        # F factors
+        T_anchor = np.array([0.2, 0.5, 1.0, 2.0, 5.0, 10.0])
+        S_T_functions = np.array([
+            np.maximum(F_0p2*Sa_0p2, F_0p5*Sa_0p5),
+            F_0p5*Sa_0p5,
+            F_1p0*Sa_1p0,
+            F_2p0*Sa_2p0,
+            F_5p0*Sa_5p0,
+            F_10p0*Sa_10p0,
+        ])
+
+        S_Tperiod = np.interp(T_period, T_anchor, S_T_functions)
+        S_0p2 = np.interp(0.2, T_anchor, S_T_functions)
+        S_0p5 = np.interp(0.5, T_anchor, S_T_functions)
+        S_2p0 = np.interp(2.0, T_anchor, S_T_functions)
+        S_4p0 = np.interp(4.0, T_anchor, S_T_functions)
+
+        # M_v Table 4.1.8.11
+        def M_v_decision_tree(Sa_ratio, lfrs_name):
+            '''
+            Given Sa(0.2)/Sa(5.0) and the LFRS
+            
+            Return the two bound values for T_a < 1.0 and T_a > 2.0
+            '''
+            S_ratio_Mv_anchors = np.array([5.0, 20.0, 40.0, 65.0])
+            Ta_Mv_anchors = np.array([0.5, 1.0, 2.0, 5.0])
+
+            if lfrs_name in ['SMF', 'CMF']:
+                Mv_table = np.array([
+                    [1, 1, 1, 1],
+                    [1, 1, 1, 1],
+                    [1, 1, 1, 1],
+                    [1, 1, 1.03, 1.03],
+                ])
+            elif lfrs_name in ['SBF']:
+                Mv_table = np.array([
+                    [1, 1, 1, 1],
+                    [1, 1, 1, 1],
+                    [1, 1, 1, 1],
+                    [1, 1.04, 1.07, 1.07],
+                ])
+            # walls and wall-frame systems
+            elif lfrs_name in ['SCW', 'SIW', 'CSW', 'CIW', 'PCW', 'PCF1', 'RML', 'RMC', 'URM', 'CFS1', 'CFS2']:
+                Mv_table = np.array([
+                    [1, 1, 1, 1.25],
+                    [1, 1, 1.18, 2.30],
+                    [1, 1.19, 1.75, 3.70],
+                    [1, 1.55, 2.25, 4.65],
+                ])
+            else:
+                Mv_table = np.array([
+                    [1, 1, 1, 1],
+                    [1, 1, 1.18, 1.18],
+                    [1, 1.19, 1.75, 1.75],
+                    [1, 1.55, 2.25, 2.25],
+                ])
+
+            interp = RegularGridInterpolator(
+                (S_ratio_Mv_anchors, Ta_Mv_anchors),
+                Mv_table,
+                bounds_error=False,
+                fill_value=None,
+            )
+
+            # clip at bounds (no extrapolation)
+            Sa_ratio = np.clip(Sa_ratio, S_ratio_Mv_anchors[0], S_ratio_Mv_anchors[-1])
+            # walls clip at T=4.0s, but use the 5.0 interpolation bound
+            if lfrs_name in ['SCW', 'SIW', 'CSW', 'CIW', 'PCW', 'PCF1', 'RML', 'RMC', 'URM', 'CFS1', 'CFS2']:
+                T_a_Mv = np.clip(T_period, Ta_Mv_anchors[0], 4.0)
+            else:
+                T_a_Mv = np.clip(T_period, Ta_Mv_anchors[0], Ta_Mv_anchors[-1])
+
+            return interp((Sa_ratio, T_a_Mv))
+        
+        M_v = M_v_decision_tree(Sa_0p2/Sa_5p0, lfrs)
+        
+        # importance factor
+        I_factor = importance_factor
+
+        V_b = S_Tperiod * M_v * I_factor / (R_d * R_o)
+        # wall and wall-frame minimums:
+        if lfrs in ['SCW', 'SIW', 'CSW', 'CIW', 'PCW', 'PCF1', 'RML', 'RMC', 'URM', 'CFS1', 'CFS2']:
+            V_min = S_4p0 * M_v * I_factor / (R_d * R_o)
+        # moment frames, braced frames and other systems
+        else:
+            V_min = S_2p0 * M_v * I_factor / (R_d * R_o)
+
+        # has an exception for F sites, but we have None
+        if R_d >= 1.5:
+            V_max = 2/3* S_0p2 * I_factor / (R_d * R_o)
+            V_b = np.minimum(V_b, V_max)
+
+            V_max = S_0p5 * I_factor / (R_d * R_o)
+            V_b = np.minimum(V_b, V_max)
+
+        return np.maximum(V_b, V_min)
+
+    
+    vs_ns = flowchart_2015(lfrs_ns)
+    vs_ew = flowchart_2015(lfrs_ew)
+
+    # unsupported features:
+    # cantilever-style walls
+    # ornamentations
+    # towers, tanks, chimneys, smokestacks, penthouses
+    # floors and roofs acting as diaphragms
+
+    return vs_ns, vs_ew
+
 
 NBCC_VS_CALCULATORS = {
     1941: vs_nbcc_1941,
@@ -1847,16 +2432,15 @@ NBCC_VS_CALCULATORS = {
     1990: vs_nbcc_1990, 
     1995: vs_nbcc_1995, # similar to 1990
     2005: vs_nbcc_2005, 
-    2010: vs_nbcc_2010
+    2010: vs_nbcc_2010,
+    2015: vs_nbcc_2015,
 }
 
 # TODO: condense repeated functions
 # R factor
-# hazards
-# F factor sites
 
-
-FA_TABLE = pd.DataFrame({
+# index is Sa_0p2
+FA_TABLE_2005 = pd.DataFrame({
     'A': [0.7, 0.7, 0.8, 0.8, 0.8],
     'B': [0.8, 0.8, 0.9, 1.0, 1.0],
     'C': [1.0, 1.0, 1.0, 1.0, 1.0],
@@ -1866,11 +2450,92 @@ FA_TABLE = pd.DataFrame({
 index=[0.25, 0.50, 0.75, 1.0, 1.25], dtype=float)
 
 
-FV_TABLE = pd.DataFrame({
+# index is Sa_1p0
+FV_TABLE_2005 = pd.DataFrame({
     'A': [0.5, 0.5, 0.5, 0.6, 0.6],
     'B': [0.6, 0.7, 0.7, 0.8, 0.8],
     'C': [1.0, 1.0, 1.0, 1.0, 1.0],
     'D': [1.4, 1.3, 1.2, 1.1, 1.1],
     'E': [2.1, 2.0, 1.9, 1.7, 1.7]
+},
+index=[0.1, 0.2, 0.3, 0.4, 0.5], dtype=float)
+
+# index is PGA_ref
+F_0P2_TABLE_2015 = pd.DataFrame({
+    'A': [0.69, 0.69, 0.69, 0.69, 0.69],
+    'B': [0.77, 0.77, 0.77, 0.77, 0.77],
+    'C': [1.0, 1.0, 1.0, 1.0, 1.0],
+    'D': [1.24, 1.09, 1.00, 0.94, 0.90],
+    'E': [1.64, 1.24, 1.05, 0.93, 0.85]
+},
+index=[0.1, 0.2, 0.3, 0.4, 0.5], dtype=float)
+
+# index is PGA_ref
+F_0P5_TABLE_2015 = pd.DataFrame({
+    'A': [0.57, 0.57, 0.57, 0.57, 0.57],
+    'B': [0.65, 0.65, 0.65, 0.65, 0.65],
+    'C': [1.0, 1.0, 1.0, 1.0, 1.0],
+    'D': [1.47, 1.30, 1.20, 1.14, 1.10],
+    'E': [2.47, 1.80, 1.48, 1.30, 1.17]
+},
+index=[0.1, 0.2, 0.3, 0.4, 0.5], dtype=float)
+
+# index is PGA_ref
+F_1P0_TABLE_2015 = pd.DataFrame({
+    'A': [0.57, 0.57, 0.57, 0.57, 0.57],
+    'B': [0.63, 0.63, 0.63, 0.63, 0.63],
+    'C': [1.0, 1.0, 1.0, 1.0, 1.0],
+    'D': [1.55, 1.39, 1.31, 1.25, 1.21],
+    'E': [2.81, 2.08, 1.74, 1.53, 1.39]
+},
+index=[0.1, 0.2, 0.3, 0.4, 0.5], dtype=float)
+
+# index is PGA_ref
+F_2P0_TABLE_2015 = pd.DataFrame({
+    'A': [0.58, 0.58, 0.58, 0.58, 0.58],
+    'B': [0.63, 0.63, 0.63, 0.63, 0.63],
+    'C': [1.0, 1.0, 1.0, 1.0, 1.0],
+    'D': [1.57, 1.44, 1.36, 1.31, 1.27],
+    'E': [2.90, 2.24, 1.92, 1.72, 1.58]
+},
+index=[0.1, 0.2, 0.3, 0.4, 0.5], dtype=float)
+
+# index is PGA_ref
+F_5P0_TABLE_2015 = pd.DataFrame({
+    'A': [0.61, 0.61, 0.61, 0.61, 0.61],
+    'B': [0.64, 0.64, 0.64, 0.64, 0.64],
+    'C': [1.0, 1.0, 1.0, 1.0, 1.0],
+    'D': [1.58, 1.48, 1.41, 1.37, 1.34],
+    'E': [2.93, 2.40, 2.14, 1.96, 1.84]
+},
+index=[0.1, 0.2, 0.3, 0.4, 0.5], dtype=float)
+
+# index is PGA_ref
+F_10P0_TABLE_2015 = pd.DataFrame({
+    'A': [0.67, 0.67, 0.67, 0.67, 0.67],
+    'B': [0.69, 0.69, 0.69, 0.69, 0.69],
+    'C': [1.0, 1.0, 1.0, 1.0, 1.0],
+    'D': [1.49, 1.41, 1.37, 1.34, 1.31],
+    'E': [2.52, 2.18, 2.00, 1.88, 1.79]
+},
+index=[0.1, 0.2, 0.3, 0.4, 0.5], dtype=float)
+
+# index is PGA_ref
+F_PGA_TABLE_2015 = pd.DataFrame({
+    'A': [0.90, 0.90, 0.90, 0.90, 0.90],
+    'B': [0.87, 0.87, 0.87, 0.87, 0.87],
+    'C': [1.0, 1.0, 1.0, 1.0, 1.0],
+    'D': [1.29, 1.10, 0.99, 0.93, 0.88],
+    'E': [1.81, 1.23, 0.98, 0.83, 0.74]
+},
+index=[0.1, 0.2, 0.3, 0.4, 0.5], dtype=float)
+
+# index is PGA_ref
+F_PGV_TABLE_2015 = pd.DataFrame({
+    'A': [0.62, 0.62, 0.62, 0.62, 0.62],
+    'B': [0.67, 0.67, 0.67, 0.67, 0.67],
+    'C': [1.0, 1.0, 1.0, 1.0, 1.0],
+    'D': [1.47, 1.30, 1.20, 1.14, 1.10],
+    'E': [2.47, 1.80, 1.48, 1.30, 1.17]
 },
 index=[0.1, 0.2, 0.3, 0.4, 0.5], dtype=float)
