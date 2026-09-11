@@ -136,9 +136,11 @@ class Inventory:
 
         # TODO: weight function
         # TODO: distribution of forces
-        # TODO: load factors
+        # TODO: load factors, before 1965 working stress design was used
+        # TODO: overstrength
 
         
+# TODO: raise flag if irregularity and post-disaster
 
         
 
