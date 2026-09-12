@@ -171,6 +171,15 @@ def vs_nbcc_1941(row, seismic_hazard_params):
     # assume that all "frame-with-wall" system have a non load-bearing wall
     bearing_wall_systems = ['CSW', 'PCW', 'RML', 'RMC', 'URM']
 
+    # Use Table H1 with item corresponding to 
+    # "the building as a whole"
+    def flowchart_1941(lfrs, site_class):
+        if site_class not in stronger_soil_bearing_sites:
+            return 0.04
+        else:
+            return 0.02
+            
+    '''
     def flowchart_1941(lfrs, site_class):
         if lfrs in bearing_wall_systems:
             return 0.05
@@ -178,7 +187,7 @@ def vs_nbcc_1941(row, seismic_hazard_params):
             return 0.04
         else:
             return 0.02
-        
+    '''
     vs_ns = flowchart_1941(lfrs_ns, site_class)
     vs_ew = flowchart_1941(lfrs_ew, site_class)
 
@@ -243,6 +252,7 @@ def vs_nbcc_1953(row, seismic_hazard_params):
     
     seismic_zone = seismic_hazard_params['seismic_zone']
 
+    '''
     # assume that all "frame-with-wall" system have a non load-bearing wall
     # bearing walls, non-bearing walls, free-standing masonry walls
     bearing_wall_systems = ['CSW', 'PCW', 'RML', 'RMC', 'URM',
@@ -254,7 +264,15 @@ def vs_nbcc_1953(row, seismic_hazard_params):
         else:
             stories = np.arange(0, number_of_stories)
             return np.sum(0.15/(stories+4.5))
+    '''
 
+    # Use Table 4.1.2 with item corresponding to 
+    # "the structure as a whole", meaning that 
+    # N is the number of stories in total
+
+    def flowchart_1953(lfrs, number_of_stories):
+        return 0.15/(number_of_stories+4.5)
+    
     vs_ns = flowchart_1953(lfrs_ns, number_of_stories)
     vs_ew = flowchart_1953(lfrs_ew, number_of_stories)
 
@@ -830,7 +848,7 @@ def vs_nbcc_1985(row, seismic_hazard_params):
     # TODO: temporarily estimator
     # if moment frame, infill, masonry, dual system
     # D_s_ft is length of the building (square assumption)
-    # else, roughly estimate D_s as about 50% of the length
+    # else, roughly estimate D_s as about 1/6 of the length
     # length of just the LFRS
     whole_length_systems = ["SMF", "CMF", "SCW", "PCF1", "CFS1", "CFS2",
                             "RML", "RMC", "SLF", "PCF2", "URM", "SIW", "CIW"]
@@ -838,12 +856,12 @@ def vs_nbcc_1985(row, seismic_hazard_params):
     if lfrs_ns in whole_length_systems:
         D_s_ns = (plan_area**0.5)
     else:
-        D_s_ns = (plan_area**0.5)*0.50
+        D_s_ns = (plan_area**0.5)/6
 
     if lfrs_ew in whole_length_systems:
         D_s_ew = (plan_area**0.5)
     else:
-        D_s_ew = (plan_area**0.5)*0.50
+        D_s_ew = (plan_area**0.5)/6
 
     # TODO: temporarily estimate bldg_height if not available
     # estimate as 3.5 m stories
@@ -1056,7 +1074,7 @@ def vs_nbcc_1990(row, seismic_hazard_params):
     # TODO: temporarily estimator
     # if moment frame, infill, masonry, dual system
     # D_s_ft is length of the building (square assumption)
-    # else, roughly estimate D_s as about 50% of the length
+    # else, roughly estimate D_s as about 1/6 of the length
     # length of just the LFRS
     whole_length_systems = ["SMF", "CMF", "SCW", "PCF1", "CFS1", "CFS2",
                             "RML", "RMC", "SLF", "PCF2", "URM", "SIW", "CIW"]
@@ -1064,12 +1082,12 @@ def vs_nbcc_1990(row, seismic_hazard_params):
     if lfrs_ns in whole_length_systems:
         D_s_ns = (plan_area**0.5)
     else:
-        D_s_ns = (plan_area**0.5)*0.50
+        D_s_ns = (plan_area**0.5)/6
 
     if lfrs_ew in whole_length_systems:
         D_s_ew = (plan_area**0.5)
     else:
-        D_s_ew = (plan_area**0.5)*0.50
+        D_s_ew = (plan_area**0.5)/6
 
     # TODO: temporarily estimate bldg_height if not available
     # estimate as 3.5m stories
@@ -1276,7 +1294,7 @@ def vs_nbcc_1995(row, seismic_hazard_params):
     # TODO: temporarily estimator
     # if moment frame, infill, masonry, dual system
     # D_s is length of the building (square assumption)
-    # else, roughly estimate D_s as about 50% of the length
+    # else, roughly estimate D_s as about 1/6 of the length
     # length of just the LFRS
     whole_length_systems = ["SMF", "CMF", "SCW", "PCF1", "CFS1", "CFS2",
                             "RML", "RMC", "SLF", "PCF2", "URM", "SIW", "CIW"]
@@ -1284,12 +1302,12 @@ def vs_nbcc_1995(row, seismic_hazard_params):
     if lfrs_ns in whole_length_systems:
         D_s_ns = (plan_area**0.5)
     else:
-        D_s_ns = (plan_area**0.5)*0.50
+        D_s_ns = (plan_area**0.5)/6
 
     if lfrs_ew in whole_length_systems:
         D_s_ew = (plan_area**0.5)
     else:
-        D_s_ew = (plan_area**0.5)*0.50
+        D_s_ew = (plan_area**0.5)/6
 
     # TODO: temporarily estimate bldg_height if not available
     # estimate as 3.5m stories

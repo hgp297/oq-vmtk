@@ -89,6 +89,25 @@ class Inventory:
 
         df = pd.read_csv(path, encoding='cp863', header=1)
         return cls(df)
+    
+    @classmethod
+    def load_from_df(cls, df: pd.DataFrame) -> "Inventory":
+        """
+        Loads directly from a DataFrame
+
+        Parameters
+        ----------
+        cls : Inventory class
+
+        df : pd.DataFrame
+            DataFrame compatible with the REFM format.
+
+        Returns
+        -------
+        Inventory.df : stores the raw survey as a DataFrame
+        """
+        
+        return cls(df)
 
 
 ### transformations (preprocessing)
@@ -117,22 +136,38 @@ class Inventory:
         Cleans the "NBC Code Year (Original Building)" field to 
         the original NBCC year. Fill to construction year if pre-code.
         '''
-        years = self.inventory_df["Seismic Upgrade Year"].astype("string").str.findall(r"\d{4}")
-
-        self.inventory_df["latest_seismic_upgrade_year"] = (
-            years
-            .explode()
+        years = (
+            self.inventory_df["Seismic Upgrade Year"]
+            .astype("string")
+            .str.extractall(r"(\d{4})")[0]
             .astype("Int64")
             .groupby(level=0)
             .max()
-            .reindex(self.inventory_df.index)
         )
 
-        self.inventory_df["original_nbcc_year"] = pd.to_numeric(
-            self.inventory_df["NBC Code Year (Original Building)"].str.extract(r"(\d+\.?\d*)")[0], errors="coerce"
-        ).fillna(self.inventory_df["Year Built"]).astype("Int64")
+        self.inventory_df["latest_seismic_upgrade_year"] = (
+            years.reindex(self.inventory_df.index)
+)
+
+        self.inventory_df["original_nbcc_year"] = (
+            pd.to_numeric(
+                self.inventory_df["NBC Code Year (Original Building)"]
+                .astype("string")
+                .str.extract(r"(\d+\.?\d*)")[0],
+                errors="coerce",
+            )
+            .fillna(
+                pd.to_numeric(
+                    self.inventory_df["Year Built"],
+                    errors="coerce",
+                )
+            )
+            .astype("Int64")
+        )
 
 ### calculation functions
+
+    # TODO: separated period estimation function
 
     def estimate_Vs(self):
         '''
