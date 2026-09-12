@@ -170,6 +170,12 @@ class Inventory:
             calc_code_strength, axis=1
         )
 
+        # factor load using best guess at working stress/ultimate stress/limit state design
+        # at the time
+        self.inventory_df['original_nbcc_factored_V'] = self.inventory_df.apply(
+            properties.factor_lateral_earthquake_load, axis=1
+        )
+
     def determine_seismic_hazard_params(self, year, site_class, location):
         '''
         Temporary holder function to determine seismic hazard.
@@ -200,6 +206,7 @@ class Inventory:
         # TODO: distribution of forces
         # TODO: load factors, before 1965 working stress design was used
         # TODO: overstrength
+        # TODO: stiffness-controlled buildings
 
     def _get_vancouver_hazard_pre2020(self, year, loc='city_hall'):
         '''

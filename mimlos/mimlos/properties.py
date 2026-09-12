@@ -3,7 +3,7 @@ import pandas as pd
 from openquake.vmtk.units import units
 from scipy.interpolate import RegularGridInterpolator
 
-NBCC_YEARS = np.array([1941, 1953, 1960, 1965, 1970, 1975, 1977, 1980, 1985, 1990, 1995, 2005, 2010, 2015, 2020, 2025])
+NBCC_YEARS = np.array([1941, 1953, 1960, 1965, 1970, 1975, 1977, 1980, 1985, 1990, 1995, 2005, 2010, 2015, 2020])
 
 def determine_effective_nbcc_year(original_year_series, seismic_upgrade_year_series):
     '''
@@ -59,6 +59,65 @@ def determine_code_strength(row, **kwargs):
         raise ValueError(
             f"Unsupported code year: {row['effective_nbcc_year']}"
         )
+    
+# correspond to worst-case load factor for lateral E loads
+def factor_lateral_earthquake_load(row):
+    '''
+    Return the equivalent limit-state design load factor for the LFRS depending on the code-year.
+    
+    Params
+    --------
+    row['effective_nbcc_year']: int
+        year of code design
+    
+    row["Seismic Force Resisting System in the North-South Direction"]: str
+        modern-classification of the n-s lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+
+    row["Seismic Force Resisting System in the East-West Direction"]: str
+        modern-classification of the e-w lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+    
+    row['original_nbcc_unfactored_V']: tuple
+        Unfactored base shear calculated from properties.determine_code_strength
+        (vs_ns, vs_ew)
+
+    Returns
+    -------
+    tuple
+        Factored base shear in each direction (ns, ew)
+    '''
+
+    code_year = row["effective_nbcc_year"]
+    vs_ns, vs_ew = row["original_nbcc_unfactored_V"]
+    lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
+    lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
+
+    def lookup_load_factor(lfrs):
+        is_concrete = lfrs in ['SCW', 'CMF', 'CSW', 'CIW', 'PCW', 'PCF1', 'PCF2']
+        return {
+            1941: 2.0, # working stress design, estimated from reinforcing steel stress limited to 50% of yield 
+            1953: 2.0, # working stress design
+            1960: 2.0, # working stress design
+            1965: 1.35 if is_concrete else 2.0, # ultimate strength design allowed as alternative, based on ACI 1963
+            1970: 1.80 if is_concrete else 2.0, # ultimate strength design allowed as alternative, based on ACI 1963
+            1975: 1.80 if is_concrete else 1.50, # ultimate strength from concrete CSA allowed (1.8 worst), but limit state introduced
+            1977: 1.80 if is_concrete else 1.50, # limit state design
+            1980: 1.80 if is_concrete else 1.50, # limit state design
+            1985: 1.50, # CSA concrete adopts limit state design in 1984
+            1990: 1.0, # reduced load factor to acknowledge extreme event
+            1995: 1.0, 
+            2005: 1.0, 
+            2010: 1.0, 
+            2015: 1.0, 
+            2020: 1.0
+        }[code_year]
+
+    load_factor_ns = lookup_load_factor(lfrs_ns)
+    load_factor_ew = lookup_load_factor(lfrs_ew)
+
+
+    return load_factor_ns * vs_ns, load_factor_ew * vs_ew
 
 def vs_nbcc_1941(row, seismic_hazard_params):
     '''
@@ -472,6 +531,14 @@ def vs_nbcc_1970(row, seismic_hazard_params):
     else:
         return 0.0, 0.0
 
+'''
+NOTE: 
+walls designed in accordance with the older codes (1975 to 1995)
+are likely to lack sufficient shear capacity over their height as
+well as flexural strength above the plastic hinge region.
+
+Ghorbanirenani et al. (2009)
+'''
 def vs_nbcc_1975(row, seismic_hazard_params):
     '''
     Calculate the lateral force coefficient based on NBC1975, as outlined
@@ -2402,6 +2469,7 @@ NBCC_VS_CALCULATORS = {
     2005: vs_nbcc_2005, 
     2010: vs_nbcc_2010,
     2015: vs_nbcc_2015,
+    2020: vs_nbcc_2020,
 }
 
 # TODO: condense repeated functions
@@ -2507,3 +2575,5 @@ F_PGV_TABLE_2015 = pd.DataFrame({
     'E': [2.47, 1.80, 1.48, 1.30, 1.17]
 },
 index=[0.1, 0.2, 0.3, 0.4, 0.5], dtype=float)
+
+
