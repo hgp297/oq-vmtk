@@ -49,6 +49,22 @@ class Inventory:
             columns={VANCOUVER_GRANVILLE41_DESIGN_HAZARD_2020.columns[0]: "site_designation"}, inplace=True)
     VANCOUVER_GRANVILLE41_DESIGN_HAZARD_2020.set_index('site_designation', inplace=True)
 
+    
+    # load 2025 hazard design values for the class
+    VANCOUVER_CITY_HALL_DESIGN_HAZARD_2025 = pd.read_csv(
+        DESIGN_HAZARD_PATH / '2025_BC_Vancouver_cityhall_Hoteldeville.csv',
+        encoding="cp863")
+    VANCOUVER_CITY_HALL_DESIGN_HAZARD_2025.rename(
+        columns={VANCOUVER_CITY_HALL_DESIGN_HAZARD_2025.columns[0]: "site_designation"}, inplace=True)
+    VANCOUVER_CITY_HALL_DESIGN_HAZARD_2025.set_index('site_designation', inplace=True)
+
+    VANCOUVER_GRANVILLE41_DESIGN_HAZARD_2025 = pd.read_csv(
+        DESIGN_HAZARD_PATH / '2025_BC_Vancouver_Granville&41Ave_rueGranvilleet41eav.csv',
+        encoding="cp863")
+    VANCOUVER_GRANVILLE41_DESIGN_HAZARD_2025.rename(
+            columns={VANCOUVER_GRANVILLE41_DESIGN_HAZARD_2025.columns[0]: "site_designation"}, inplace=True)
+    VANCOUVER_GRANVILLE41_DESIGN_HAZARD_2025.set_index('site_designation', inplace=True)
+
     def __init__(self, df: pd.DataFrame):
         self.df_raw = df
         self.inventory_df = self.filter_reviewed()
@@ -188,7 +204,7 @@ class Inventory:
         )
 
         # calculate the original base shear
-        def calc_code_strength(row):
+        def calc_design_base_shear_capacity(row):
             # determine hazard based on year, site class, and location
             # store as dict to pass to code-calculation function
             seismic_hazard_dict = self.determine_seismic_hazard_params(
@@ -201,15 +217,42 @@ class Inventory:
             return properties.determine_code_strength(row, seismic_hazard_params=seismic_hazard_dict)
 
         # apply to every row
-        self.inventory_df['original_nbcc_unfactored_V'] = self.inventory_df.apply(
-            calc_code_strength, axis=1
+        self.inventory_df['original_nbcc_unfactored_Vd'] = self.inventory_df.apply(
+            calc_design_base_shear_capacity, axis=1
         )
 
         # factor load using best guess at working stress/ultimate stress/limit state design
         # at the time
-        self.inventory_df['original_nbcc_factored_V'] = self.inventory_df.apply(
+
+        # we assume that SEG adjustments will account for overstrength
+        self.inventory_df['original_nbcc_factored_Ve'] = self.inventory_df.apply(
             properties.factor_lateral_earthquake_load, axis=1
         )
+        self.inventory_df['SEG_adjusted_NBCC_factored_Ve'] = self.inventory_df.apply(
+            properties.adjust_base_shear_capacity_SEG, axis=1
+        )
+
+        # TODO: this is used in SEG to trigger higher tier
+        def calc_SEG_base_shear_demand(row):
+            # uses the 2025 NBCC seismic base shear demand for evaluation
+            # VQE = kappa * alpha_q * V_N
+            # determine hazard based on year, site class, and location
+            # store as dict to pass to code-calculation function
+
+            seismic_hazard_dict = self.determine_seismic_hazard_params(
+                year=2025,
+                site_class=row["Site Class"],
+                location='vancouver_city_hall'
+            )
+
+            # calculate code strength 
+            return properties.vs_nbcc_2025(row, seismic_hazard_params=seismic_hazard_dict, historical_mode=False)
+
+        self.inventory_df['NBCC_2025_unfactored_Vd'] = self.inventory_df.apply(
+                calc_SEG_base_shear_demand, axis=1
+            )
+
+            
 
     def determine_seismic_hazard_params(self, year, site_class, location):
         '''
@@ -217,7 +260,16 @@ class Inventory:
         
         If available, read it. If not, default to Vancouver
         '''
-        if year > 2015:
+        if year >= 2025:
+            if location == 'vancouver_city_hall':
+                return self._get_vancouver_hazard_post2020(
+                    hazard_df=self.VANCOUVER_CITY_HALL_DESIGN_HAZARD_2025, 
+                    site_class=site_class)
+            elif location == 'vancouver_granville41':
+                return self._get_vancouver_hazard_post2020(
+                    hazard_df=self.VANCOUVER_GRANVILLE41_DESIGN_HAZARD_2025, 
+                    site_class=site_class)
+        elif year > 2015:
             if location == 'vancouver_city_hall':
                 return self._get_vancouver_hazard_post2020(
                     hazard_df=self.VANCOUVER_CITY_HALL_DESIGN_HAZARD_2020, 
@@ -239,8 +291,6 @@ class Inventory:
 
         # TODO: weight function
         # TODO: distribution of forces
-        # TODO: load factors, before 1965 working stress design was used
-        # TODO: overstrength
         # TODO: stiffness-controlled buildings
 
     def _get_vancouver_hazard_pre2020(self, year, loc='city_hall'):
