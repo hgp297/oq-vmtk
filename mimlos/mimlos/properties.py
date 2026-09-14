@@ -598,13 +598,13 @@ def vs_nbcc_1970(row, seismic_hazard_params):
 
     # in 1965, this was renamed to R factor
     if seismic_zone == 3:
-        return 4*vs_ns, 4*vs_ew
+        return np.float64(4*vs_ns), np.float64(4*vs_ew)
     elif seismic_zone == 2:
-        return 2*vs_ns, 2*vs_ew
+        return np.float64(2*vs_ns), np.float64(2*vs_ew)
     elif seismic_zone == 1:
-        return vs_ns, vs_ew
+        return np.float64(vs_ns), np.float64(vs_ew)
     else:
-        return 0.0, 0.0
+        return np.float64(0.0), np.float64(0.0)
 
 '''
 NOTE: 
@@ -1461,14 +1461,7 @@ def vs_nbcc_2005(row, seismic_hazard_params):
         R_o = R_O_TABLE(lfrs, ductility_level=ductility_level)
 
         # period estimation, using the more detailed moment-frame
-        if lfrs == 'SMF':
-            T_period = 0.085*(h_n**0.75)
-        elif lfrs == 'CMF':
-            T_period = 0.075*(h_n**0.75)
-        elif lfrs == 'SBF':
-            T_period = 0.025*h_n
-        else:
-            T_period = 0.05*(h_n**0.75)
+        T_period = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
 
         # 4.1.8.4 Sentence 6, design spectral acceleration
         T_anchor = np.array([0.2, 0.5, 1.0, 2.0, 4.0])
@@ -1666,14 +1659,8 @@ def vs_nbcc_2010(row, seismic_hazard_params):
         R_o = R_O_TABLE(lfrs, ductility_level=ductility_level)
 
         # period estimation, using the more detailed moment-frame
-        if lfrs == 'SMF':
-            T_period = 0.085*(h_n**0.75)
-        elif lfrs == 'CMF':
-            T_period = 0.075*(h_n**0.75)
-        elif lfrs == 'SBF':
-            T_period = 0.025*h_n
-        else:
-            T_period = 0.05*(h_n**0.75)
+        
+        T_period = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
 
         # 4.1.8.4 Sentence 6, design spectral acceleration
         T_anchor = np.array([0.2, 0.5, 1.0, 2.0, 4.0])
@@ -1903,15 +1890,7 @@ def vs_nbcc_2015(row, seismic_hazard_params):
         # presumably for warehouse/gathering hall type buildings. The lengthening 
         # is based on the shortest bay length
         # TODO: currently omitted
-
-        if lfrs == 'SMF':
-            T_period = 0.085*(h_n**0.75)
-        elif lfrs == 'CMF':
-            T_period = 0.075*(h_n**0.75)
-        elif lfrs == 'SBF':
-            T_period = 0.025*h_n
-        else:
-            T_period = 0.05*(h_n**0.75)
+        T_period = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
 
         # 4.1.8.4 Sentence 6, design spectral acceleration
         T_anchor = np.array([0.2, 0.5, 1.0, 2.0, 5.0, 10.0])
@@ -2141,21 +2120,7 @@ def vs_nbcc_2020(row, seismic_hazard_params):
         R_o = R_O_TABLE(lfrs, ductility_level=ductility_level)
 
         # period estimation, using the more detailed moment-frame
-
-        # 2015 has a specific estimation to allow for the lengthening
-        # of periods for single-story buildings with steel deck or wood roof diaphragms
-        # presumably for warehouse/gathering hall type buildings. The lengthening 
-        # is based on the shortest bay length
-        # TODO: currently omitted
-
-        if lfrs == 'SMF':
-            T_period = 0.085*(h_n**0.75)
-        elif lfrs == 'CMF':
-            T_period = 0.075*(h_n**0.75)
-        elif lfrs == 'SBF':
-            T_period = 0.025*h_n
-        else:
-            T_period = 0.05*(h_n**0.75)
+        T_period = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
 
         # 4.1.8.4 Sentence 6, design spectral acceleration
         # 2020 directly calculated site values rather than using 
@@ -2417,21 +2382,7 @@ def vs_nbcc_2025(row, seismic_hazard_params, historical_mode=False):
                 pass
 
         # period estimation, using the more detailed moment-frame
-
-        # 2015 has a specific estimation to allow for the lengthening
-        # of periods for single-story buildings with steel deck or wood roof diaphragms
-        # presumably for warehouse/gathering hall type buildings. The lengthening 
-        # is based on the shortest bay length
-        # TODO: currently omitted
-
-        if lfrs == 'SMF':
-            T_period = 0.085*(h_n**0.75)
-        elif lfrs == 'CMF':
-            T_period = 0.075*(h_n**0.75)
-        elif lfrs == 'SBF':
-            T_period = 0.025*h_n
-        else:
-            T_period = 0.05*(h_n**0.75)
+        T_period = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
 
         # 4.1.8.4 Sentence 6, design spectral acceleration
         # 2020 directly calculated site values rather than using 
@@ -2562,6 +2513,122 @@ NBCC_VS_CALCULATORS = {
     2020: vs_nbcc_2020,
     2025: vs_nbcc_2025, # only hazard changed, added historical mode
 }
+
+def determine_period_post_1995(lfrs, h_n):
+    '''
+    Determine the fundamental period using the 1995 NBCC
+    estimation equations (and after 1995).
+
+    2015 onwards has a specific estimation to allow for the lengthening
+    of periods for single-story buildings with steel deck or wood roof diaphragms
+    presumably for warehouse/gathering hall type buildings. The lengthening 
+    is based on the shortest bay length. This is not considered herein.
+    
+    Parameters
+    -----------
+    lfrs: lateral force resisting system, as conforming to the SEG typology list
+    h_n: Height from building to roof of building in meters
+
+    Returns
+    -----------
+    float:
+        Fundamental period in seconds
+    '''
+
+    if lfrs == 'SMF':
+        return 0.085*(h_n**0.75)
+    elif lfrs == 'CMF':
+        return 0.075*(h_n**0.75)
+    elif lfrs == 'SBF':
+        return 0.025*h_n
+    else:
+        return 0.05*(h_n**0.75)
+
+def distribute_story_shear(row, 
+                           methodology_year=2025, 
+                           shear_field='SEG_adjusted_NBCC_factored_Ve',
+                           weight_array=None):
+    '''
+    Function to distribute the base shear to story forces along the 
+    building height for the purposes of determining story strength forces.
+
+    Parameters
+    ------------------
+    row: pd.Series
+        Current analysis building
+    methodology_year: int
+        Year of methodology of the distribution function.
+    shear_field: str
+        Field of the pd.Series representing the base shear to be distributed. 
+        Default is the NBCC factored base shear, representing the SEG's
+        best estimate of the design code of the time.
+    weight_array: np.array
+        Array of the weight distribution.
+        Default is None, which will generate a generic distribution
+
+    row["Seismic Force Resisting System in the North-South Direction"]: str
+        modern-classification of the n-s lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+
+    row["Seismic Force Resisting System in the East-West Direction"]: str
+        modern-classification of the e-w lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+    
+    row["Building Height (Total Height Above Ground (m) to Roof Slab)"]: numeric
+        Building height in metres. If not provided, will be estimated with 3.5m stories. 
+
+    row["Floors Above Grade"]: numeric
+        number of stories above grade
+
+    row[shear_field]: tuple
+        Pair of n-s e-w base shear to be distributed
+
+    Returns
+    tuple:
+        (np.array, np.array) corresponding to the NS and EW story strength distribution.
+        This is the cumulative sum of the story forces F_x above that level.
+
+    '''
+    vs_ns, vs_ew = row[shear_field]
+    number_of_stories = int(row["Floors Above Grade"])
+    bldg_height = row["Building Height (Total Height Above Ground (m) to Roof Slab)"]*units.m
+    lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
+    lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
+
+    # placeholder, a seismic weight array with 1.0 for floors and 0.75 for roof
+    if weight_array is None:
+        W_x = np.ones(number_of_stories)
+        W_x[-1] = 0.75
+
+    # estimate building height array
+    if np.isnan(bldg_height):
+        h_n = 3.5 * units.m * number_of_stories
+        h_x = 3.5 * units.m * np.arange(1.0, number_of_stories+1)
+    else:
+        h_n = bldg_height * units.m
+        h_ix = h_n / number_of_stories
+        h_x = h_ix * np.arange(1.0, number_of_stories+1)
+
+
+    def calculate_Vj(lfrs, V_E):
+
+        # top level force. currently only 2025 is supported
+        T_a = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
+        if methodology_year == 2025:
+            F_t = 0.07 * T_a * V_E
+            F_t = np.minimum(F_t, 0.25*V_E)
+            if T_a <= 0.7:
+                F_t = 0.0
+
+        F_x = (V_E - F_t) * W_x * h_x / (np.dot(W_x, h_x))
+        F_x[-1] += F_t
+
+        return np.cumsum(F_x[::-1])[::-1]
+
+    V_j_ns = calculate_Vj(lfrs_ns, vs_ns)
+    V_j_ew = calculate_Vj(lfrs_ew, vs_ew)
+
+    return V_j_ns, V_j_ew
 
 # TODO: condense repeated functions
 # R factor
@@ -2884,9 +2951,6 @@ def R_O_TABLE(lfrs, ductility_level='ductile'):
             "CFS2": 1.3, # conventional
         }
     return Ro_lookup_table[lfrs]
-    
-    
-
 
 # index is Sa_0p2
 FA_TABLE_2005 = pd.DataFrame({

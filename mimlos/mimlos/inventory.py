@@ -245,12 +245,17 @@ class Inventory:
                 location='vancouver_city_hall'
             )
 
-            # calculate code strength 
-            return properties.vs_nbcc_2025(row, seismic_hazard_params=seismic_hazard_dict, historical_mode=False)
+            # calculate code strength V_N
+            return properties.vs_nbcc_2025(row, seismic_hazard_params=seismic_hazard_dict, historical_mode=True)
 
         self.inventory_df['NBCC_2025_unfactored_Vd'] = self.inventory_df.apply(
                 calc_SEG_base_shear_demand, axis=1
             )
+
+        # distribute the factored forces across stories using code methodology
+        self.inventory_df['NBCC_2025_story_strengths'] = self.inventory_df.apply(
+            properties.distribute_story_shear, axis=1
+        )
 
             
 
