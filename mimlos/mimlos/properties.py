@@ -41,6 +41,66 @@ def determine_effective_nbcc_year(original_year_series, seismic_upgrade_year_ser
 
     return latest_code_year(effective_construction_year)
 
+def determine_period(row):
+    '''
+    Function to estimate fundamental period of the building. According to
+    the Level 3 Seismic Evaluation Guideline, the fundamental period is to 
+    be calculated using the NBCC 2025 Equation. 
+
+    Parameters
+    ------------------
+    row: pd.Series
+        Current analysis building
+    methodology_year: int
+        Year of methodology of the distribution function.
+    shear_field: str
+        Field of the pd.Series representing the base shear to be distributed. 
+        Default is the NBCC factored base shear, representing the SEG's
+        best estimate of the design code of the time.
+    weight_array: np.array
+        Array of the weight distribution.
+        Default is None, which will generate a generic distribution
+
+    row["Seismic Force Resisting System in the North-South Direction"]: str
+        modern-classification of the n-s lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+
+    row["Seismic Force Resisting System in the East-West Direction"]: str
+        modern-classification of the e-w lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+    
+    row["Building Height (Total Height Above Ground (m) to Roof Slab)"]: numeric
+        Building height in metres. If not provided, will be estimated with 3.5m stories. 
+
+    row["Floors Above Grade"]: numeric
+        number of stories above grade
+
+    Returns
+    tuple:
+        (list, list) first two periods in the n-s and e-w directions
+
+    '''
+    number_of_stories = int(row["Floors Above Grade"])
+    bldg_height = row["Building Height (Total Height Above Ground (m) to Roof Slab)"]*units.m
+    lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
+    lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
+
+    # estimate building height array
+    if np.isnan(bldg_height):
+        h_n = 3.5 * units.m * number_of_stories
+    else:
+        h_n = bldg_height * units.m
+        h_ix = h_n / number_of_stories
+
+    def calc_periods(lfrs, h_n):
+        return determine_period_post_1995(lfrs=lfrs, h_n=h_n)
+
+    T_ns = calc_periods(lfrs_ns, h_n)
+    T_ew = calc_periods(lfrs_ew, h_n)
+
+    return T_ns, T_ew
+
+
 def determine_code_strength(row, **kwargs):
     '''
     Dispatcher function to redirect to the correct code calculation

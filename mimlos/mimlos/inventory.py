@@ -203,6 +203,11 @@ class Inventory:
             self.inventory_df["latest_seismic_upgrade_year"]
         )
 
+        # determine fundamental periods
+        self.inventory_df['T_1'] = self.inventory_df.apply(
+            properties.determine_period, axis=1
+        ) 
+
         # calculate the original base shear
         def calc_design_base_shear_capacity(row):
             # determine hazard based on year, site class, and location
