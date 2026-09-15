@@ -1,9 +1,10 @@
 from pathlib import Path
 import pandas as pd
 import numpy as np
-from . import properties
+from . import nbcc
 
 DESIGN_HAZARD_PATH = Path(__file__).resolve().parent / "data" / "hazard" / "design"
+
 
 class Inventory:
     """
@@ -198,14 +199,14 @@ class Inventory:
         self.latest_seismic_upgrade_year()
 
         # determine latest year of seismic code
-        self.inventory_df['effective_nbcc_year'] = properties.determine_effective_nbcc_year(
+        self.inventory_df['effective_nbcc_year'] = nbcc.determine_effective_nbcc_year(
             self.inventory_df["original_nbcc_year"],
             self.inventory_df["latest_seismic_upgrade_year"]
         )
 
         # determine fundamental periods
-        self.inventory_df['T_1'] = self.inventory_df.apply(
-            properties.determine_period, axis=1
+        self.inventory_df['T_n'] = self.inventory_df.apply(
+            nbcc.determine_period, axis=1
         ) 
 
         # calculate the original base shear
@@ -219,7 +220,7 @@ class Inventory:
             )
 
             # calculate code strength 
-            return properties.determine_code_strength(row, seismic_hazard_params=seismic_hazard_dict)
+            return nbcc.determine_code_strength(row, seismic_hazard_params=seismic_hazard_dict)
 
         # apply to every row
         self.inventory_df['original_nbcc_unfactored_Vd'] = self.inventory_df.apply(
@@ -231,10 +232,10 @@ class Inventory:
 
         # we assume that SEG adjustments will account for overstrength
         self.inventory_df['original_nbcc_factored_Ve'] = self.inventory_df.apply(
-            properties.factor_lateral_earthquake_load, axis=1
+            nbcc.factor_lateral_earthquake_load, axis=1
         )
         self.inventory_df['SEG_adjusted_NBCC_factored_Ve'] = self.inventory_df.apply(
-            properties.adjust_base_shear_capacity_SEG, axis=1
+            nbcc.adjust_base_shear_capacity_SEG, axis=1
         )
 
         # TODO: this is used in SEG to trigger higher tier
@@ -251,7 +252,7 @@ class Inventory:
             )
 
             # calculate code strength V_N
-            return properties.vs_nbcc_2025(row, seismic_hazard_params=seismic_hazard_dict, historical_mode=True)
+            return nbcc.vs_nbcc_2025(row, seismic_hazard_params=seismic_hazard_dict, historical_mode=True)
 
         self.inventory_df['NBCC_2025_unfactored_Vd'] = self.inventory_df.apply(
                 calc_SEG_base_shear_demand, axis=1
@@ -259,8 +260,73 @@ class Inventory:
 
         # distribute the factored forces across stories using code methodology
         self.inventory_df['NBCC_2025_story_strengths'] = self.inventory_df.apply(
-            properties.distribute_story_shear, axis=1
+            nbcc.distribute_story_shear, axis=1
         )
+
+    def estimate_capacities(self):
+        '''
+        Estimate the strength and displacement capacities of the building
+        using the code-level and typology of the building, along with
+        the original design strength.
+
+        '''
+
+        # determine code level for each lfrs per direction
+        self.determine_code_level()
+
+    def determine_code_level(self):
+        '''
+        From the construction year and the archetype of the building,
+        determine the level of code construction for the building.
+        
+        This is used to redispatch to ductility values as outlined by
+        HAZUS.
+        
+        Definitions for pre-, low-, and moderate code match that 
+        of the 2025 UBC Seismic Risk study performed by Arup. Definitions
+        of benchmark high-code are set by the Seismic Evaluation Guidelines
+        
+        Parameters
+        -------------
+        row['effective_nbcc_year']: int
+                year of code design
+            
+        row["Seismic Force Resisting System in the North-South Direction"]: str
+            modern-classification of the n-s lateral force resisting system in the 
+            NRC Seismic Evaluation Guidelines typologies
+
+        row["Seismic Force Resisting System in the East-West Direction"]: str
+            modern-classification of the e-w lateral force resisting system in the 
+            NRC Seismic Evaluation Guidelines typologies
+
+        Returns
+        -------------
+        '''
+        code_year = self.inventory_df["effective_nbcc_year"]
+        lfrs_ns = self.inventory_df["Seismic Force Resisting System in the North-South Direction"]
+        lfrs_ew = self.inventory_df["Seismic Force Resisting System in the East-West Direction"]
+
+        def code_lookup(lfrs_series):
+            ylc, ymc, yhc = nbcc.get_code_bins(lfrs_series)
+                
+            code_level = np.select(
+                [
+                    code_year < ylc,
+                    code_year < ymc,
+                    code_year < yhc,
+                    ],
+                [
+                    "pre-code",
+                    "low-code",
+                    "moderate-code",
+                ],
+                default="high-code",
+            )
+            return [str(x) for x in code_level]
+        
+        code_level_ns = code_lookup(lfrs_ns)
+        code_level_ew = code_lookup(lfrs_ew)
+        self.inventory_df['code_level'] = list(zip(code_level_ns, code_level_ew))
 
             
 
