@@ -1,3 +1,8 @@
+'''
+Estimation of properties from historical NBCC as well as the 
+Level 3 Seismic Evaluation Guidelines.
+
+'''
 import numpy as np
 import pandas as pd
 from openquake.vmtk.units import units
