@@ -3293,29 +3293,6 @@ F_PGV_TABLE_2015 = pd.DataFrame({
 },
 index=[0.1, 0.2, 0.3, 0.4, 0.5], dtype=float)
 
-SEG_TO_FEMA = {
-    "WLF-P9": "W1",
-    "WLF": "W2",
-    "WPB": "W2",
-    "SMF": "S1",
-    "SBF": "S2",
-    "SLF": "S3",
-    "SCW": "S4",
-    "SIW": "S5",
-    "CMF": "C1",
-    "CSW": "C2",
-    "CIW": "C3",
-    "PCW": "PC1",
-    "PCF1": "PC2",
-    "PCF2": "PC2",
-    "RML": "RM1",
-    "RMC": "RM2",
-    "URM": "URM",
-    "CFS1": "S3",
-    "CFS2": "S3",
-}
-
-
 BENCHMARK_YEAR = {
     "WLF-P9": 2010,
     "WLF": 2005,
