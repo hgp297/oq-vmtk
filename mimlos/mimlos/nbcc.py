@@ -105,6 +105,81 @@ def determine_period(row):
 
     return T_ns, T_ew
 
+def determine_content_weight(row):
+    '''
+    Function to estimate weight of the building based on SEG's weight of content
+    based on Occupancy Type and SFRS. Dead load estimation for floor and roof systems
+    are based on CISC Table on 7-69. 
+
+    Weight here are meant to be estimations of actual weight of the content, not
+    design loads or factored loads.
+
+    Parameters
+    ------------------
+    row: pd.Series
+        Current analysis building
+
+    row["Seismic Force Resisting System in the North-South Direction"]: str
+        modern-classification of the n-s lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+
+    row["Seismic Force Resisting System in the East-West Direction"]: str
+        modern-classification of the e-w lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+    
+    row["Floors Above Grade"]: numeric
+        number of stories above grade
+
+    row["Ground Floor Plan Area (sq.m.)"]: numeric
+        Ground floor plan area in square metres, to identify dimension length
+    
+    row["Occupancy Type"]: str
+        Building Occupancy, categorized by NRC Seismic Evaluation Guidelines
+
+    row["Roof System"]: str
+        Roof type, categorized by NRC Seismic Evaluation Guidelines
+    
+    row["Floor System"]: str
+        Floor type, categorized by NRC Seismic Evaluation Guidelines
+
+    Returns
+    np.array: size(number_of_stories)
+        array of weight in N. First element is the level above the ground, while
+        the last element is the roof.
+
+    '''
+
+    number_of_stories = int(row["Floors Above Grade"])
+    lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
+    lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
+    occupancy_type = row["Occupancy Type"]
+    roof_system = row["Roof System"]
+    floor_system = row["Floor System"]
+    floor_area = row["Ground Floor Plan Area (sq.m.)"]*units.m2
+
+    # all in N, m
+    # live load table, default to median of 1 kPa
+    ll_occupancy = OCCUPANCY_LOAD_SEG_2025.get(occupancy_type, 1.0)*units.kPa
+
+    # divide by 2 because 2 directions, then add the two together
+    dl_lfrs_ns = SFRS_SELF_WEIGHT_SEG_2025[lfrs_ns]*units.kPa/2
+    dl_lfrs_ew = SFRS_SELF_WEIGHT_SEG_2025[lfrs_ew]*units.kPa/2
+    dl_lfrs = dl_lfrs_ns + dl_lfrs_ew
+
+    # dl slab/roof, default to median of 2.7 kPa
+    dl_roof = ROOF_FLOOR_WEIGHT_SEG_2025.get(roof_system, 2.7)*units.kPa
+    dl_floor = ROOF_FLOOR_WEIGHT_SEG_2025.get(floor_system, 2.7)*units.kPa
+
+    # reduce load on roof to half
+    ll_array = ll_occupancy*np.ones(number_of_stories)
+    ll_array[-1] /= 2
+
+    # combine roof/floor with lfrs
+    dl_array = dl_floor*np.ones(number_of_stories)
+    dl_array[-1] = dl_roof
+    dl_array += dl_lfrs
+
+    return floor_area*(dl_array + ll_array)
 
 def determine_code_strength(row, **kwargs):
     '''
@@ -3221,4 +3296,62 @@ BENCHMARK_YEAR = {
     "URM": 2005,
     "CFS1":2010,
     "CFS2":2010,
+}
+
+# in kPa, median is 1.0
+OCCUPANCY_LOAD_SEG_2025 = {
+    'Office': 1.0,
+    "Public":	1.5,
+    "Commercial":	2,
+    "Industrial":	3,
+    "Educational":	1,
+    "Residential":	1,
+    "Care/treatment (healthcare)":	1,
+    "Storage / Warehouse":	2,
+    "Parking":	0.5,
+    "Public Assembly":	1,
+    "Passenger Station":	1,
+}
+
+# in kPa
+SFRS_SELF_WEIGHT_SEG_2025 = {
+    "WLF-P9": 0.3,
+    "WLF": 0.5,
+    "WPB": 0.5,
+    "SMF": 1.0,
+    "SBF": 1.0,
+    "SLF": 0.5,
+    "SCW": 2.5,
+    "SIW": 2.5,
+    "CMF": 3.0,
+    "CSW": 4.0,
+    "CIW": 5.0,
+    "PCW": 3.0,
+    "PCF1": 4.0,
+    "PCF2": 3.0,
+    "RML": 4.0,
+    "RMC": 5.0,
+    "URM": 5.0,
+    "CFS1": 0.5,
+    "CFS2": 0.5,
+}
+
+# in kPa, median is 2.7
+ROOF_FLOOR_WEIGHT_SEG_2025 = {
+    '4" Concrete Slab':	                            2.3,
+    '5" Concrete Slab':	                            2.9,
+    '6" Concrete Slab':	                            3.5,
+    '7" Concrete Slab':	                            4.0,
+    '8" Concrete Slab':	                            4.6,
+    '9" Concrete Slab':	                            5.2,
+    '10" Concrete Slab':	                        5.8,
+    '12" Concrete Slab':	                        6.9,
+    'Wood Joists @16" O.C. with Plywood Sheathing':	0.25,
+    'Wood Trusses':	                                0.5,
+    '38mm Steel Deck':	                            0.1,
+    '76mm Steel Deck':	                            0.3,
+    '38mm Steel Deck with 65mm Concrete Topping':   1.95,
+    '38mm Steel Deck with 90mm Concrete Topping':   2.55,
+    '76mm Steel Deck with 65mm Concrete Topping':   2.2,
+    '76mm Steel Deck with 90mm Concrete Topping':   2.8,
 }

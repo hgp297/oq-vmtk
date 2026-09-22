@@ -2,6 +2,7 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 from . import nbcc
+from openquake.vmtk.units import units
 
 DESIGN_HAZARD_PATH = Path(__file__).resolve().parent / "data" / "hazard" / "design"
 
@@ -184,8 +185,6 @@ class Inventory:
 
 ### calculation functions
 
-    # TODO: separated period estimation function
-
     def estimate_Vs(self):
         '''
         Estimate the lateral strength of the building by using the 
@@ -273,6 +272,25 @@ class Inventory:
 
         # determine code level for each lfrs per direction
         self.determine_code_level()
+
+    def estimate_loads(self):
+        '''
+        Estimate weight of the building based on SEG's weight of content
+        based on Occupancy Type and SFRS. Dead load estimation for floor and roof systems
+        are based on CISC Table on 7-69. 
+
+        Weight here are meant to be estimations of actual weight of the content, not
+        design loads or factored loads.
+        '''
+
+        self.inventory_df['weight_x_N'] = self.inventory_df.apply(
+            nbcc.determine_content_weight, axis=1
+        )
+
+        self.inventory_df['vertical_load_x_Pa'] = (self.inventory_df['weight_x_N']/
+                                                self.inventory_df["Ground Floor Plan Area (sq.m.)"]*units.m2)
+
+
 
     def determine_code_level(self):
         '''
@@ -364,9 +382,6 @@ class Inventory:
                     "Unsupported analysis location."
                 )
 
-
-        # TODO: weight function
-        # TODO: distribution of forces
         # TODO: stiffness-controlled buildings
 
     def _get_vancouver_hazard_pre2020(self, year, loc='city_hall'):
