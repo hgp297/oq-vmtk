@@ -9,10 +9,28 @@ from openquake.vmtk.units import units
 from scipy.optimize import least_squares
 from math import sin, sinh, cos, cosh
 
-def calculate_parameters(T_n, H):
+def calculate_parameters(T_n, h_j, W_j, V_j):
     '''
     Calculate NMFS parameters as detailed in Xiong et al. (2016)
     
+    Parameters
+    ----------
+    T_n : np.array(2)
+        First and second natural periods of the building
+
+    h_j : np.array(number_of_stories)
+        Height of each story in meters
+
+    W_j : np.array(number_of_stories)
+        Weight of each story in N
+
+    V_j : np.array(number of stories)
+        Design shear of each floor, corresponding to the NBCC distribution
+        of base shear, in N
+
+    Returns
+    -------
+    Inventory.df : stores the raw survey as a DataFrame
     '''
     T_1 = T_n[0]
     T_2 = T_n[-1]
@@ -38,6 +56,24 @@ def calculate_parameters(T_n, H):
         raise RuntimeError("Solution has significant residuals")
 
     gamma_1, gamma_2, alpha_0 = solution.x
+
+    # unit density of each floor (kg/m)
+    rho_j = W_j / h_j / units.g
+    rho = np.mean(rho_j)
+
+    # building height
+    H_bldg = np.sum(h_j)
+
+    # Xiong Equation 5 & 6
+    omega_1_sq = 2 * units.pi / T_1
+    EI_flexural = (omega_1_sq * rho * (H_bldg**4) / 
+                   (gamma_1**2*(gamma_1**2 + alpha_0**2)))
+
+    GA_shear = (alpha_0 / H_bldg)**2 * EI_flexural
+
+
+
+
 
 def flexural_shear_eigen(parameters, T_1, T_2):
     '''

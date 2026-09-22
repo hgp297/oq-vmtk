@@ -105,6 +105,46 @@ def determine_period(row):
 
     return T_ns, T_ew
 
+def determine_design_gravity_loads(row):
+    '''
+    Function to calculate the vertical load used to determine base shear according
+    to NBCC 2025.
+
+    Parameters
+    ------------------
+    row: pd.Series
+        Current analysis building
+
+    row["Seismic Force Resisting System in the North-South Direction"]: str
+        modern-classification of the n-s lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+
+    row["Seismic Force Resisting System in the East-West Direction"]: str
+        modern-classification of the e-w lateral force resisting system in the 
+        NRC Seismic Evaluation Guidelines typologies
+    
+    row["Floors Above Grade"]: numeric
+        number of stories above grade
+
+    row["Ground Floor Plan Area (sq.m.)"]: numeric
+        Ground floor plan area in square metres, to identify dimension length
+    
+    row["Occupancy Type"]: str
+        Building Occupancy, categorized by NRC Seismic Evaluation Guidelines
+
+    row["Roof System"]: str
+        Roof type, categorized by NRC Seismic Evaluation Guidelines
+    
+    row["Floor System"]: str
+        Floor type, categorized by NRC Seismic Evaluation Guidelines
+
+    Returns
+    np.array: size(number_of_stories)
+        array of weight in N. First element is the level above the ground, while
+        the last element is the roof.
+
+    '''
+
 def determine_content_weight(row):
     '''
     Function to estimate weight of the building based on SEG's weight of content

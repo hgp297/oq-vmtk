@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from . import nbcc
 from openquake.vmtk.units import units
+from . import hazus
 
 DESIGN_HAZARD_PATH = Path(__file__).resolve().parent / "data" / "hazard" / "design"
 
@@ -345,6 +346,95 @@ class Inventory:
         code_level_ns = code_lookup(lfrs_ns)
         code_level_ew = code_lookup(lfrs_ew)
         self.inventory_df['code_level'] = list(zip(code_level_ns, code_level_ew))
+
+        
+
+    def determine_hazus_parameters(self):
+        '''
+        Returns HAZUS parameters
+
+        C_s, design strength as fraction of building weight
+
+        overstrength_ratios
+        gamma: yield, ratio of yield to design strength
+        lambda: ultimate, ratio of ultimate to yield strength
+
+        ductility factor mu
+        ratio of ultimate displacement to lambda * yield displacement
+        '''
+        lfrs_ns = self.inventory_df["Seismic Force Resisting System in the North-South Direction"]
+        lfrs_ew = self.inventory_df["Seismic Force Resisting System in the East-West Direction"]
+
+        # determine FEMA/Hazus typology
+        fema_ns_stem = lfrs_ns.map(hazus.SEG_TO_FEMA_TYPOLOGY)
+        fema_ew_stem = lfrs_ew.map(hazus.SEG_TO_FEMA_TYPOLOGY)
+
+        height_conditions = [
+            (self.inventory_df['Floors Above Grade'] < 4),
+            (self.inventory_df['Floors Above Grade'] < 7) & (self.inventory_df['Floors Above Grade'] >= 4),
+            (self.inventory_df['Floors Above Grade'] > 7),
+        ]
+
+        height_archetypes = ['L', 'M', 'H']
+        no_height_delin = ["W1", "W2", "S3", "PC1"]
+
+        height_suffix = np.select(height_conditions, height_archetypes, default="")
+        self.inventory_df["FEMA_lfrs_ns"] = np.where(
+            fema_ns_stem.isin(no_height_delin),
+            fema_ns_stem,
+            fema_ns_stem + height_suffix,
+        )
+
+        self.inventory_df["FEMA_lfrs_ew"] = np.where(
+            fema_ew_stem.isin(no_height_delin),
+            fema_ew_stem,
+            fema_ew_stem + height_suffix,
+        )
+
+        # map hazus parameters
+        self.inventory_df["hazus_Cs_design_strength"] = [
+            (
+                hazus.HAZUS_DESIGN_STRENGTH_TABLE.loc[code[0], lfrs_ns],
+                hazus.HAZUS_DESIGN_STRENGTH_TABLE.loc[code[1], lfrs_ew],
+            )
+            for code, lfrs_ns, lfrs_ew
+            in zip(self.inventory_df["code_level"], 
+                   self.inventory_df["FEMA_lfrs_ns"], 
+                   self.inventory_df["FEMA_lfrs_ew"])
+        ]
+
+        self.inventory_df["hazus_Omega_y_yield_overstrength"] = [
+            (
+                hazus.HAZUS_PUSHOVER_TABLE.loc["gamma", lfrs_ns],
+                hazus.HAZUS_PUSHOVER_TABLE.loc["gamma", lfrs_ew],
+            )
+            for lfrs_ns, lfrs_ew
+            in zip(self.inventory_df["FEMA_lfrs_ns"], 
+                   self.inventory_df["FEMA_lfrs_ew"])
+        ]
+
+
+        self.inventory_df["hazus_Omega_p_peak_overstrength"] = [
+            (
+                hazus.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ns],
+                hazus.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ew],
+            )
+            for lfrs_ns, lfrs_ew
+            in zip(self.inventory_df["FEMA_lfrs_ns"], 
+                    self.inventory_df["FEMA_lfrs_ew"])
+        ]
+
+        self.inventory_df["hazus_mu_ductility"] = [
+            (
+                hazus.HAZUS_DUCTILITY_TABLE.loc[code[0], lfrs_ns],
+                hazus.HAZUS_DUCTILITY_TABLE.loc[code[1], lfrs_ew],
+            )
+            for code, lfrs_ns, lfrs_ew
+            in zip(self.inventory_df["code_level"], 
+                   self.inventory_df["FEMA_lfrs_ns"], 
+                   self.inventory_df["FEMA_lfrs_ew"])
+        ]
+
 
             
 
