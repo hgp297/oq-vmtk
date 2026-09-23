@@ -9,9 +9,77 @@ from openquake.vmtk.units import units
 from scipy.optimize import least_squares
 from math import sin, sinh, cos, cosh
 
-def calculate_parameters(T_n, h_j, W_j, V_j):
+def calculate_bilinear_displacement(V_j, h_j, GA):
     '''
-    Calculate NMFS parameters as detailed in Xiong et al. (2016)
+    Calculate displacement capacity once shear capacity 
+    and shear stiffness are given using
+
+    delta_j = V_j * h_j / GA 
+
+    Can be calculated for 
+    _d : design
+    _y : yield
+
+    This is valid for bilinear models, in which the design, yield,
+    and peak points are all defined to be in the "elastic" range
+
+    Parameters
+    ----------
+    V_j : np.array(number of stories)
+        Strength of each floor. 
+
+    h_j : np.array(number_of_stories)
+        Height of each story in meters
+
+    GA : float
+        Whole building shear stiffness calculated from elastic parameters
+        outlined by Xiong et al., Equation 1-6
+
+    Returns
+    -------
+    delta_j: np.array(number_of_stories)
+        Displacement capacity of each story
+    '''
+
+    return V_j * h_j / GA
+
+def calculate_trilinear_peak_displacement(mu, Omega_p, delta_y):
+    '''
+    Calculate peak displacement of the trilinear capacity curve
+    using Hazus ductility factors
+
+    delta_j = V_j * h_j / GA 
+
+    Can be calculated for 
+    _d : design
+    _y : yield
+
+    This is valid for trilinear models, the peak point is at a 
+    post-yield regime
+
+    Parameters
+    ----------
+    mu : float
+        HAZUS ductility factor
+
+    Omega_p : float
+        peak overstrength, ratio between V_p and V_y (Hazus lambda)
+
+    delta_y : np.array(number_of_stories)
+        yield displacement of each story
+
+    Returns
+    -------
+    delta_p: np.array(number_of_stories)
+        Peak displacement of each story
+    '''
+
+    return mu * Omega_p * delta_y
+
+
+def calculate_shear_stiffness(T_n, h_j, W_j):
+    '''
+    Calculate shear stiffness GA as detailed in Xiong et al. (2016)
     
     Parameters
     ----------
@@ -71,9 +139,7 @@ def calculate_parameters(T_n, h_j, W_j, V_j):
 
     GA_shear = (alpha_0 / H_bldg)**2 * EI_flexural
 
-
-
-
+    return GA_shear
 
 def flexural_shear_eigen(parameters, T_1, T_2):
     '''

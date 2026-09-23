@@ -186,6 +186,15 @@ class Inventory:
 
 ### calculation functions
 
+    def preprocess_inventory(self):
+        '''
+        Various cleaning of "reviewed" data
+
+
+        '''
+        self.inventory_df = self.inventory_df.astype({'Floors Above Grade': int, 'Floors Below Grade': int})
+
+
     def estimate_Vs(self):
         '''
         Estimate the lateral strength of the building by using the 
@@ -203,6 +212,8 @@ class Inventory:
             self.inventory_df["original_nbcc_year"],
             self.inventory_df["latest_seismic_upgrade_year"]
         )
+
+        # self.inventory_df['Floors Above Grade'] = self.inventory_df['Floors Above Grade'].astype(int)
 
         # determine fundamental periods
         self.inventory_df['T_n'] = self.inventory_df.apply(
@@ -254,12 +265,14 @@ class Inventory:
             # calculate code strength V_N
             return nbcc.vs_nbcc_2025(row, seismic_hazard_params=seismic_hazard_dict, historical_mode=True)
 
+        # considering ductility deficiencies of previous code versions
+        # what is the required Vd according to 2025 NBCC to be okay
         self.inventory_df['NBCC_2025_unfactored_Vd'] = self.inventory_df.apply(
                 calc_SEG_base_shear_demand, axis=1
             )
 
-        # distribute the factored forces across stories using code methodology
-        self.inventory_df['NBCC_2025_story_strengths'] = self.inventory_df.apply(
+        # distribute the factored forces across stories using 2025 code methodology
+        self.inventory_df['Vd_distributed_SEG_adjusted_NBCC_factored_Ve'] = self.inventory_df.apply(
             nbcc.distribute_story_shear, axis=1
         )
 
@@ -268,11 +281,26 @@ class Inventory:
         Estimate the strength and displacement capacities of the building
         using the code-level and typology of the building, along with
         the original design strength.
-
         '''
+        self.inventory_df['Vdj_story_design_shear'] = self.inventory_df['Vd_distributed_SEG_adjusted_NBCC_factored_Ve'].copy()
+        self.inventory_df['Vyj_story_yield_shear'] = [tuple(x * y for x, y in zip(t1, t2)) 
+                                    for t1, t2 in zip(
+                                        self.inventory_df['Vdj_story_design_shear'], 
+                                        self.inventory_df['hazus_Omega_y_yield_overstrength'])]
+        self.inventory_df['Vpj_story_peak_shear'] = [tuple(x * y for x, y in zip(t1, t2)) 
+                                    for t1, t2 in zip(
+                                        self.inventory_df['Vyj_story_yield_shear'], 
+                                        self.inventory_df['hazus_Omega_p_peak_overstrength'])]
 
-        # determine code level for each lfrs per direction
-        self.determine_code_level()
+        # if no building height, h_j is 3.5 meters per floor
+        # if building height, divide it by n_stories
+
+        # self.inventory_df['h_j'] = np.where(
+        #     self.inventory_df["Building Height (Total Height Above Ground (m) to Roof Slab)"].isna(), 
+        #     3.5*units.m*np.ones(self.inventory_df["Floors Above Grade"]), 
+        #     (self.inventory_df["Building Height (Total Height Above Ground (m) to Roof Slab)"]/
+        #      self.inventory_df["Floors Above Grade"])*units.m*np.ones(self.inventory_df["Floors Above Grade"].astype(int))
+        #      )   
 
     def estimate_loads(self):
         '''
@@ -362,6 +390,10 @@ class Inventory:
         ductility factor mu
         ratio of ultimate displacement to lambda * yield displacement
         '''
+        
+        # determine code level for each lfrs per direction
+        self.determine_code_level()
+
         lfrs_ns = self.inventory_df["Seismic Force Resisting System in the North-South Direction"]
         lfrs_ew = self.inventory_df["Seismic Force Resisting System in the East-West Direction"]
 

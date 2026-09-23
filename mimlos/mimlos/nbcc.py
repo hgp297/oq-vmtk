@@ -2817,7 +2817,9 @@ def distribute_story_shear(row,
         number of stories above grade
 
     row[shear_field]: tuple
-        Pair of n-s e-w base shear to be distributed
+        Pair of n-s e-w base shear to be distributed. Default is the NBCC estimate 
+        of the code at the time, adjusted for overstrength according to the 2025
+        Seismic Evaluation Guideline
 
     Returns
     tuple:
