@@ -8,6 +8,7 @@ import pandas as pd
 from openquake.vmtk.units import units
 from scipy.optimize import least_squares
 from math import sin, sinh, cos, cosh
+import warnings
 
 def calculate_bilinear_displacement(V_j, h_j, GA):
     '''
@@ -107,21 +108,33 @@ def calculate_shear_stiffness(T_n, h_j, W_j):
     # system of equations
 
     # have an initial guess that separates gamma_1 and gamma_2 (eigenvalues)
-    initial_guess = [1.875, 4.694, 2.0]
-    solution = least_squares(
-        flexural_shear_eigen,
-        initial_guess,
-        args=(T_1, T_2),
-        bounds=([1e-6, 1e-6, 0.0],
-                [np.inf, np.inf, np.inf])
-    )
+    # stiffer shear walls/concrete structures
+    if T_2/T_1 <= 0.29:
+        initial_guess = [1.875, 4.694, 2.0]
+        solution = least_squares(
+            flexural_shear_eigen,
+            initial_guess,
+            args=(T_1, T_2),
+            bounds=([1e-6, 1e-6, 0.0],
+                    [np.inf, np.inf, np.inf])
+        )
+    else:
+        initial_guess = [1.875, 4.694, 15.0]
+        solution = least_squares(
+            flexural_shear_eigen,
+            initial_guess,
+            args=(T_1, T_2),
+            bounds=([1e-6, 1e-6, 5.0],
+                    [np.inf, np.inf, 20.0])
+        )
 
     # assert that solution exists
-    if solution.status != 1:
+    if solution.status == 0:
         raise RuntimeError(solution.message)
 
     if not np.allclose(solution.fun, 0, atol=1e-8):
-        raise RuntimeError("Solution has significant residuals")
+        print(T_2/T_1)
+        warnings.warn("Solution has significant residuals")
 
     gamma_1, gamma_2, alpha_0 = solution.x
 

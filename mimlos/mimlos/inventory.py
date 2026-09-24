@@ -4,6 +4,7 @@ import numpy as np
 from . import nbcc
 from openquake.vmtk.units import units
 from . import hazus
+from . import nmfs
 
 DESIGN_HAZARD_PATH = Path(__file__).resolve().parent / "data" / "hazard" / "design"
 
@@ -294,13 +295,30 @@ class Inventory:
 
         # if no building height, h_j is 3.5 meters per floor
         # if building height, divide it by n_stories
+        height = self.inventory_df[
+            "Building Height (Total Height Above Ground (m) to Roof Slab)"
+        ]
+        floors = self.inventory_df["Floors Above Grade"].astype(int)
 
-        # self.inventory_df['h_j'] = np.where(
-        #     self.inventory_df["Building Height (Total Height Above Ground (m) to Roof Slab)"].isna(), 
-        #     3.5*units.m*np.ones(self.inventory_df["Floors Above Grade"]), 
-        #     (self.inventory_df["Building Height (Total Height Above Ground (m) to Roof Slab)"]/
-        #      self.inventory_df["Floors Above Grade"])*units.m*np.ones(self.inventory_df["Floors Above Grade"].astype(int))
-        #      )   
+        self.inventory_df["h_j"] = [
+            np.full(
+                n,
+                3.5 if pd.isna(h) else h / n,
+            ) * units.m
+            for h, n in zip(height, floors)
+        ]
+
+        self.inventory_df["GA_building_shear_stiffness"] = [
+            (
+                nmfs.calculate_shear_stiffness(T[0], h, W),
+                nmfs.calculate_shear_stiffness(T[1], h, W),
+            )
+            for T, h, W in zip(
+                self.inventory_df["T_n"],
+                self.inventory_df["h_j"],
+                self.inventory_df["weight_x_N"],
+            )
+        ]
 
     def estimate_loads(self):
         '''
