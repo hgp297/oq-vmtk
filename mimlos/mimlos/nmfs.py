@@ -119,13 +119,13 @@ def calculate_shear_stiffness(T_n, h_j, W_j):
                     [np.inf, np.inf, np.inf])
         )
     else:
-        initial_guess = [1.875, 4.694, 15.0]
+        initial_guess = [1.875, 4.694, 20.0]
         solution = least_squares(
             flexural_shear_eigen,
             initial_guess,
             args=(T_1, T_2),
             bounds=([1e-6, 1e-6, 5.0],
-                    [np.inf, np.inf, 20.0])
+                    [np.inf, np.inf, 50.0])
         )
 
     # assert that solution exists
@@ -133,7 +133,6 @@ def calculate_shear_stiffness(T_n, h_j, W_j):
         raise RuntimeError(solution.message)
 
     if not np.allclose(solution.fun, 0, atol=1e-8):
-        print(T_2/T_1)
         warnings.warn("Solution has significant residuals")
 
     gamma_1, gamma_2, alpha_0 = solution.x
