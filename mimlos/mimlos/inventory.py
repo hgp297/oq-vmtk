@@ -308,6 +308,7 @@ class Inventory:
             for h, n in zip(height, floors)
         ]
 
+        # calculate shear stiffness in each direction
         self.inventory_df["GA_building_shear_stiffness"] = [
             (
                 nmfs.calculate_shear_stiffness(T[0], h, W),
@@ -317,6 +318,32 @@ class Inventory:
                 self.inventory_df["T_n"],
                 self.inventory_df["h_j"],
                 self.inventory_df["weight_x_N"],
+            )
+        ]
+
+        # calculate (NMFS) yield from GA for each direction
+        self.inventory_df["u_y_from_GA"] = [
+            (
+                nmfs.calculate_bilinear_displacement(V_j[0]*np.sum(W_j), h_j, GA[0]),
+                nmfs.calculate_bilinear_displacement(V_j[1]*np.sum(W_j), h_j, GA[1])
+            )
+            for V_j, W_j, h_j, GA in zip(
+                self.inventory_df["Vyj_story_yield_shear"],
+                self.inventory_df["weight_x_N"],
+                self.inventory_df["h_j"],
+                self.inventory_df["GA_building_shear_stiffness"],
+            )
+        ]
+
+        # calculate (NMFS) yield from GA for each direction
+        self.inventory_df["delta_y_from_GA"] = [
+            (
+                u_j[0] / h_j,
+                u_j[1] / h_j,
+            )
+            for u_j, h_j in zip(
+                self.inventory_df["u_y_from_GA"],
+                self.inventory_df["h_j"],
             )
         ]
 

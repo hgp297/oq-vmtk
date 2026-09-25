@@ -1671,7 +1671,8 @@ def vs_nbcc_2005(row, seismic_hazard_params):
         R_o = R_O_TABLE(lfrs, ductility_level=ductility_level)
 
         # period estimation, using the more detailed moment-frame
-        T_period = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
+        T_array = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
+        T_period = T_array[0]
 
         # 4.1.8.4 Sentence 6, design spectral acceleration
         T_anchor = np.array([0.2, 0.5, 1.0, 2.0, 4.0])
@@ -1869,8 +1870,8 @@ def vs_nbcc_2010(row, seismic_hazard_params):
         R_o = R_O_TABLE(lfrs, ductility_level=ductility_level)
 
         # period estimation, using the more detailed moment-frame
-        
-        T_period = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
+        T_array = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
+        T_period = T_array[0]
 
         # 4.1.8.4 Sentence 6, design spectral acceleration
         T_anchor = np.array([0.2, 0.5, 1.0, 2.0, 4.0])
@@ -2100,7 +2101,8 @@ def vs_nbcc_2015(row, seismic_hazard_params):
         # presumably for warehouse/gathering hall type buildings. The lengthening 
         # is based on the shortest bay length
         # TODO: currently omitted
-        T_period = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
+        T_array = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
+        T_period = T_array[0]
 
         # 4.1.8.4 Sentence 6, design spectral acceleration
         T_anchor = np.array([0.2, 0.5, 1.0, 2.0, 5.0, 10.0])
@@ -2330,7 +2332,8 @@ def vs_nbcc_2020(row, seismic_hazard_params):
         R_o = R_O_TABLE(lfrs, ductility_level=ductility_level)
 
         # period estimation, using the more detailed moment-frame
-        T_period = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
+        T_array = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
+        T_period = T_array[0]
 
         # 4.1.8.4 Sentence 6, design spectral acceleration
         # 2020 directly calculated site values rather than using 
@@ -2592,8 +2595,8 @@ def vs_nbcc_2025(row, seismic_hazard_params, historical_mode=False):
                 pass
 
         # period estimation, using the more detailed moment-frame
-        T_period = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
-
+        T_array = determine_period_post_1995(lfrs=lfrs, h_n=h_n)
+        T_period = T_array[0]
         # 4.1.8.4 Sentence 6, design spectral acceleration
         # 2020 directly calculated site values rather than using 
         # F factors

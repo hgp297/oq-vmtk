@@ -27,19 +27,19 @@ def calculate_bilinear_displacement(V_j, h_j, GA):
     Parameters
     ----------
     V_j : np.array(number of stories)
-        Strength of each floor. 
+        Strength of each floor, units of N
 
     h_j : np.array(number_of_stories)
         Height of each story in meters
 
     GA : float
         Whole building shear stiffness calculated from elastic parameters
-        outlined by Xiong et al., Equation 1-6
+        outlined by Xiong et al., Equation 1-6, units of N
 
     Returns
     -------
     delta_j: np.array(number_of_stories)
-        Displacement capacity of each story
+        Displacement capacity of each story, units of m
     '''
 
     return V_j * h_j / GA
@@ -92,10 +92,6 @@ def calculate_shear_stiffness(T_n, h_j, W_j):
 
     W_j : np.array(number_of_stories)
         Weight of each story in N
-
-    V_j : np.array(number of stories)
-        Design shear of each floor, corresponding to the NBCC distribution
-        of base shear, in N
 
     Returns
     -------

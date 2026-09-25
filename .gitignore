@@ -1,6 +1,9 @@
 *.pyc
 __pycache__/
 
+# demo outputs
+*.gif
+
 # macOS
 *.DS_Store
 .AppleDouble
