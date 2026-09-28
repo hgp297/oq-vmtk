@@ -246,6 +246,15 @@ def get_code_bins(lfrs):
     of the 2025 UBC Seismic Risk study performed by Arup. Definitions
     of benchmark high-code are set by the Seismic Evaluation Guidelines
 
+    TODO: Scientific basis of CanNSRM 1 has reference benchmark years
+    For Vancouver, this would essentially be
+    [1900, 1973, 1990, 2005]
+    [pre , mod , high, high]
+
+    Current:
+    [1900, 1970, 1985/1992, 2005]
+    [pre , low , mod , high]
+
     Parameters
     --------------------
     lfrs: string
