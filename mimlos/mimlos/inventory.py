@@ -322,10 +322,10 @@ class Inventory:
         ]
 
         # calculate (NMFS) yield from GA for each direction
-        self.inventory_df["u_y_from_GA"] = [
+        self.inventory_df["u_yj_yield_drift"] = [
             (
-                nmfs.calculate_bilinear_displacement(V_j[0]*np.sum(W_j), h_j, GA[0]),
-                nmfs.calculate_bilinear_displacement(V_j[1]*np.sum(W_j), h_j, GA[1])
+                nmfs.calculate_elastic_displacement(V_j[0]*np.sum(W_j), h_j, GA[0]),
+                nmfs.calculate_elastic_displacement(V_j[1]*np.sum(W_j), h_j, GA[1])
             )
             for V_j, W_j, h_j, GA in zip(
                 self.inventory_df["Vyj_story_yield_shear"],
@@ -335,17 +335,36 @@ class Inventory:
             )
         ]
 
-        # calculate (NMFS) yield from GA for each direction
-        self.inventory_df["delta_y_from_GA"] = [
+        # calculate (NMFS) peak displacements for each direction
+        self.inventory_df['u_pj_peak_drift'] = [tuple(mu * omega * uy for mu, omega, uy in zip(mu_, omega_, uy_)) 
+                                    for mu_, omega_, uy_ in zip(
+                                        self.inventory_df['hazus_mu_ductility'], 
+                                        self.inventory_df['hazus_Omega_p_peak_overstrength'],
+                                        self.inventory_df['u_yj_yield_drift'])]
+
+        # corresponding drift ratios
+        self.inventory_df["delta_yj_yield_drift_ratio"] = [
             (
                 u_j[0] / h_j,
                 u_j[1] / h_j,
             )
             for u_j, h_j in zip(
-                self.inventory_df["u_y_from_GA"],
+                self.inventory_df["u_yj_yield_drift"],
                 self.inventory_df["h_j"],
             )
-        ]
+        ]       
+
+        # corresponding drift ratios
+        self.inventory_df["delta_pj_peak_drift_ratio"] = [
+            (
+                u_j[0] / h_j,
+                u_j[1] / h_j,
+            )
+            for u_j, h_j in zip(
+                self.inventory_df["u_pj_peak_drift"],
+                self.inventory_df["h_j"],
+            )
+        ]       
 
         # self.inventory_df["global_drift"] = [
         #         (

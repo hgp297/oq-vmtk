@@ -10,7 +10,7 @@ from scipy.optimize import least_squares
 from math import sin, sinh, cos, cosh
 import warnings
 
-def calculate_bilinear_displacement(V_j, h_j, GA):
+def calculate_elastic_displacement(V_j, h_j, GA):
     '''
     Calculate displacement capacity once shear capacity 
     and shear stiffness are given using
@@ -21,8 +21,8 @@ def calculate_bilinear_displacement(V_j, h_j, GA):
     _d : design
     _y : yield
 
-    This is valid for bilinear models, in which the design, yield,
-    and peak points are all defined to be in the "elastic" range
+    This is only valid for pre-yield parameters in the elastic
+    range. Do not use this to calculate peak/ultimate displacements
 
     Parameters
     ----------
@@ -44,38 +44,38 @@ def calculate_bilinear_displacement(V_j, h_j, GA):
 
     return V_j * units.kN * h_j * units.m / (GA * units.kN)
 
-def calculate_trilinear_peak_displacement(mu, Omega_p, delta_y):
-    '''
-    Calculate peak displacement of the trilinear capacity curve
-    using Hazus ductility factors
+# def calculate_trilinear_peak_displacement(mu, Omega_p, delta_y):
+#     '''
+#     Calculate peak displacement of the trilinear capacity curve
+#     using Hazus ductility factors
 
-    delta_j = V_j * h_j / GA 
+#     delta_j = V_j * h_j / GA 
 
-    Can be calculated for 
-    _d : design
-    _y : yield
+#     Can be calculated for 
+#     _d : design
+#     _y : yield
 
-    This is valid for trilinear models, the peak point is at a 
-    post-yield regime
+#     This is valid for trilinear models, the peak point is at a 
+#     post-yield regime
 
-    Parameters
-    ----------
-    mu : float
-        HAZUS ductility factor
+#     Parameters
+#     ----------
+#     mu : float
+#         HAZUS ductility factor
 
-    Omega_p : float
-        peak overstrength, ratio between V_p and V_y (Hazus lambda)
+#     Omega_p : float
+#         peak overstrength, ratio between V_p and V_y (Hazus lambda)
 
-    delta_y : np.array(number_of_stories)
-        yield displacement of each story
+#     delta_y : np.array(number_of_stories)
+#         yield displacement of each story
 
-    Returns
-    -------
-    delta_p: np.array(number_of_stories)
-        Peak displacement of each story
-    '''
+#     Returns
+#     -------
+#     delta_p: np.array(number_of_stories)
+#         Peak displacement of each story
+#     '''
 
-    return mu * Omega_p * delta_y
+#     return mu * Omega_p * delta_y
 
 
 def calculate_shear_stiffness(T_n, h_j, W_j):
