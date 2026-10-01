@@ -27,14 +27,14 @@ def calculate_bilinear_displacement(V_j, h_j, GA):
     Parameters
     ----------
     V_j : np.array(number of stories)
-        Strength of each floor, units of N
+        Strength of each floor, units of kN
 
     h_j : np.array(number_of_stories)
         Height of each story in meters
 
     GA : float
         Whole building shear stiffness calculated from elastic parameters
-        outlined by Xiong et al., Equation 1-6, units of N
+        outlined by Xiong et al., Equation 1-6, units of kN
 
     Returns
     -------
@@ -42,7 +42,7 @@ def calculate_bilinear_displacement(V_j, h_j, GA):
         Displacement capacity of each story, units of m
     '''
 
-    return V_j * h_j / GA
+    return V_j * units.kN * h_j * units.m / (GA * units.kN)
 
 def calculate_trilinear_peak_displacement(mu, Omega_p, delta_y):
     '''
@@ -133,19 +133,19 @@ def calculate_shear_stiffness(T_n, h_j, W_j):
 
     gamma_1, gamma_2, alpha_0 = solution.x
 
-    # unit density of each floor (kg/m)
-    rho_j = W_j / h_j / units.g
+    # unit density of each floor (1e3 kg/m)
+    rho_j = W_j*units.kN / h_j*units.m / units.g
     rho = np.mean(rho_j)
 
     # building height
     H_bldg = np.sum(h_j)
 
     # Xiong Equation 5 & 6
-    omega_1_sq = 2 * units.pi / T_1
-    EI_flexural = (omega_1_sq * rho * (H_bldg**4) / 
-                   (gamma_1**2*(gamma_1**2 + alpha_0**2)))
+    omega_1 = (2 * units.pi / T_1)
+    EI_flexural = (omega_1**2 * rho * (H_bldg**4) / 
+                   (gamma_1**2*(gamma_1**2 + alpha_0**2))) # units of kN m^2
 
-    GA_shear = (alpha_0 / H_bldg)**2 * EI_flexural
+    GA_shear = (alpha_0 / H_bldg)**2 * EI_flexural # units of kN
 
     return GA_shear
 
@@ -182,8 +182,8 @@ def flexural_shear_eigen(parameters, T_1, T_2):
     gamma_2 = parameters[1]
     alpha_0 = parameters[-1]
 
-    period_ratio_eqn = gamma_1/gamma_2 * ((gamma_1**2 + alpha_0**2)/
-                                          (gamma_2**2 + alpha_0**2))**0.5 - (T_2 / T_1)
+    period_ratio_eqn = (T_2 / T_1) - (gamma_1/gamma_2) * ((gamma_1**2 + alpha_0**2)/
+                                          (gamma_2**2 + alpha_0**2))**0.5
     char_eq_1 = (2 + 
                  (2 + alpha_0**4 / (gamma_1**2*(gamma_1**2 + alpha_0**2)))*
                  cos(gamma_1) * cosh((alpha_0**2 + gamma_1**2)**0.5) +

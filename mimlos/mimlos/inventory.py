@@ -309,7 +309,7 @@ class Inventory:
         ]
 
         # calculate shear stiffness in each direction
-        self.inventory_df["GA_building_shear_stiffness"] = [
+        self.inventory_df["GA_building_shear_stiffness_kN"] = [
             (
                 nmfs.calculate_shear_stiffness(T[0], h, W),
                 nmfs.calculate_shear_stiffness(T[1], h, W),
@@ -317,7 +317,7 @@ class Inventory:
             for T, h, W in zip(
                 self.inventory_df["T_n"],
                 self.inventory_df["h_j"],
-                self.inventory_df["weight_x_N"],
+                self.inventory_df["weight_x_kN"],
             )
         ]
 
@@ -329,9 +329,9 @@ class Inventory:
             )
             for V_j, W_j, h_j, GA in zip(
                 self.inventory_df["Vyj_story_yield_shear"],
-                self.inventory_df["weight_x_N"],
+                self.inventory_df["W_nbcc_x_kN"],
                 self.inventory_df["h_j"],
-                self.inventory_df["GA_building_shear_stiffness"],
+                self.inventory_df["GA_building_shear_stiffness_kN"],
             )
         ]
 
@@ -347,6 +347,17 @@ class Inventory:
             )
         ]
 
+        # self.inventory_df["global_drift"] = [
+        #         (
+        #             np.sum(u_j[0]) / np.sum(h_j),
+        #             np.sum(u_j[1]) / np.sum(h_j),
+        #         )
+        #         for u_j, h_j in zip(
+        #             self.inventory_df["u_y_from_GA"],
+        #             self.inventory_df["h_j"],
+        #         )
+        #     ]
+
     def estimate_loads(self):
         '''
         Estimate weight of the building based on SEG's weight of content
@@ -357,11 +368,15 @@ class Inventory:
         design loads or factored loads.
         '''
 
-        self.inventory_df['weight_x_N'] = self.inventory_df.apply(
+        self.inventory_df['weight_x_kN'] = self.inventory_df.apply(
             nbcc.determine_content_weight, axis=1
         )
+        
+        self.inventory_df['W_nbcc_x_kN'] = self.inventory_df.apply(
+            nbcc.determine_seismic_W_nbcc, axis=1
+        )
 
-        self.inventory_df['vertical_load_x_Pa'] = (self.inventory_df['weight_x_N']/
+        self.inventory_df['vertical_load_x_kPa'] = (self.inventory_df['weight_x_kN']/
                                                 self.inventory_df["Ground Floor Plan Area (sq.m.)"]*units.m2)
 
 

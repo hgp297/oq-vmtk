@@ -105,10 +105,12 @@ def determine_period(row):
 
     return T_ns, T_ew
 
-def determine_design_gravity_loads(row):
+def determine_seismic_W_nbcc(row):
     '''
     Function to calculate the vertical load used to determine base shear according
     to NBCC 2025.
+
+    Section 4.1.8 states this to be D + 0.15 S
 
     Parameters
     ------------------
@@ -144,6 +146,33 @@ def determine_design_gravity_loads(row):
         the last element is the roof.
 
     '''
+
+    number_of_stories = int(row["Floors Above Grade"])
+    lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
+    lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
+    roof_system = row["Roof System"]
+    floor_system = row["Floor System"]
+    floor_area = row["Ground Floor Plan Area (sq.m.)"]*units.m2
+
+    # all in kN, m
+
+    # TODO: missing 0.15 snow load
+
+    # divide by 2 because 2 directions, then add the two together
+    dl_lfrs_ns = SFRS_SELF_WEIGHT_SEG_2025[lfrs_ns]*units.kPa/2
+    dl_lfrs_ew = SFRS_SELF_WEIGHT_SEG_2025[lfrs_ew]*units.kPa/2
+    dl_lfrs = dl_lfrs_ns + dl_lfrs_ew
+
+    # dl slab/roof, default to median of 2.7 kPa
+    dl_roof = ROOF_FLOOR_WEIGHT_SEG_2025.get(roof_system, 2.7)*units.kPa
+    dl_floor = ROOF_FLOOR_WEIGHT_SEG_2025.get(floor_system, 2.7)*units.kPa
+
+    # combine roof/floor with lfrs
+    dl_array = dl_floor*np.ones(number_of_stories)
+    dl_array[-1] = dl_roof
+    dl_array += dl_lfrs
+
+    return floor_area*(dl_array)
 
 def determine_content_weight(row):
     '''
@@ -197,7 +226,7 @@ def determine_content_weight(row):
     floor_system = row["Floor System"]
     floor_area = row["Ground Floor Plan Area (sq.m.)"]*units.m2
 
-    # all in N, m
+    # all in kN, m
     # live load table, default to median of 1 kPa
     ll_occupancy = OCCUPANCY_LOAD_SEG_2025.get(occupancy_type, 1.0)*units.kPa
 
@@ -212,7 +241,7 @@ def determine_content_weight(row):
 
     # reduce load on roof to half
     ll_array = ll_occupancy*np.ones(number_of_stories)
-    ll_array[-1] /= 2
+    # ll_array[-1] /= 2
 
     # combine roof/floor with lfrs
     dl_array = dl_floor*np.ones(number_of_stories)
