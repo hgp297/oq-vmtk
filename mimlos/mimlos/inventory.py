@@ -150,14 +150,14 @@ class Inventory:
 
     def latest_seismic_upgrade_year(self):
         '''
-        Cleans the "Seismic Upgrade Year" field to only
+        Cleans the seismic upgrade year field to only
         the latest year found.
 
         Cleans the "NBC Code Year (Original Building)" field to 
         the original NBCC year. Fill to construction year if pre-code.
         '''
         years = (
-            self.inventory_df["Seismic Upgrade Year"]
+            self.inventory_df["Description of Seismic Upgrade and Year if Applicable"]
             .astype("string")
             .str.extractall(r"(\d{4})")[0]
             .astype("Int64")
@@ -167,7 +167,9 @@ class Inventory:
 
         self.inventory_df["latest_seismic_upgrade_year"] = (
             years.reindex(self.inventory_df.index)
-)
+        )
+
+        self.inventory_df["effective_seismic_upgrade_yn"] = self.inventory_df["Comprehensive Seismic Upgrade (Y/N)"].fillna("No")
 
         self.inventory_df["original_nbcc_year"] = (
             pd.to_numeric(
@@ -211,7 +213,8 @@ class Inventory:
         # determine latest year of seismic code
         self.inventory_df['effective_nbcc_year'] = nbcc.determine_effective_nbcc_year(
             self.inventory_df["original_nbcc_year"],
-            self.inventory_df["latest_seismic_upgrade_year"]
+            self.inventory_df["latest_seismic_upgrade_year"],
+            self.inventory_df["effective_seismic_upgrade_yn"]
         )
 
         # self.inventory_df['Floors Above Grade'] = self.inventory_df['Floors Above Grade'].astype(int)
@@ -364,7 +367,33 @@ class Inventory:
                 self.inventory_df["u_pj_peak_drift"],
                 self.inventory_df["h_j"],
             )
-        ]       
+        ]
+
+
+        # stack together
+        self.inventory_df["story_forces_kN"] = [
+            (
+                np.column_stack([Vyj[0]*np.sum(W_j), Vpj[0]*np.sum(W_j)]),
+                np.column_stack([Vyj[1]*np.sum(W_j), Vpj[1]*np.sum(W_j)]),
+            )
+            for Vyj, Vpj, W_j in zip(
+                self.inventory_df["Vyj_story_yield_shear"],
+                self.inventory_df["Vpj_story_peak_shear"],
+                self.inventory_df["W_nbcc_x_kN"],
+            )
+        ]
+
+        
+        self.inventory_df["story_drift_capacity_m"] = [
+            (
+                np.column_stack([uyj[0], upj[0]]),
+                np.column_stack([uyj[1], upj[1]]),
+            )
+            for uyj, upj in zip(
+                self.inventory_df["u_yj_yield_drift"],
+                self.inventory_df["u_pj_peak_drift"],
+            )
+        ]              
 
         # self.inventory_df["global_drift"] = [
         #         (
@@ -616,7 +645,7 @@ class Inventory:
         za_zv_era = [1985, 1990, 1995]
         early_site_era = [2005, 2010]
         mid_site_era = [2015]
-
+        
         if loc == 'city_hall':
             if year in seismic_zone_era:
                 seismic_hazard_params = {
@@ -648,36 +677,36 @@ class Inventory:
                     'Sa_pgv' : 0.553,
                 }
 
-            elif loc == 'granville_41':
-                if year in seismic_zone_era:
-                    seismic_hazard_params = {
-                        'seismic_zone': 3
-                    }
-                elif year in za_zv_era:
-                    seismic_hazard_params = {
-                        'Za' : 4,
-                        'Zv' : 4,
-                        'v_ratio' : 0.20
-                    }
-                elif year in early_site_era:
-                    seismic_hazard_params = {
-                        'Sa_0p2' : 0.95,
-                        'Sa_0p5' : 0.65,
-                        'Sa_1p0' : 0.34,
-                        'Sa_2p0' : 0.17,
-                        'Sa_pga' : 0.47,
-                    }
-                elif year in mid_site_era:
-                    seismic_hazard_params = {
-                        'Sa_0p2' : 0.863,
-                        'Sa_0p5' : 0.765,
-                        'Sa_1p0' : 0.432,
-                        'Sa_2p0' : 0.261,
-                        'Sa_5p0' : 0.081,
-                        'Sa_10p0': 0.029,
-                        'Sa_pga' : 0.375,
-                        'Sa_pgv' : 0.563,
-                    }
+        elif loc == 'granville_41':
+            if year in seismic_zone_era:
+                seismic_hazard_params = {
+                    'seismic_zone': 3
+                }
+            elif year in za_zv_era:
+                seismic_hazard_params = {
+                    'Za' : 4,
+                    'Zv' : 4,
+                    'v_ratio' : 0.20
+                }
+            elif year in early_site_era:
+                seismic_hazard_params = {
+                    'Sa_0p2' : 0.95,
+                    'Sa_0p5' : 0.65,
+                    'Sa_1p0' : 0.34,
+                    'Sa_2p0' : 0.17,
+                    'Sa_pga' : 0.47,
+                }
+            elif year in mid_site_era:
+                seismic_hazard_params = {
+                    'Sa_0p2' : 0.863,
+                    'Sa_0p5' : 0.765,
+                    'Sa_1p0' : 0.432,
+                    'Sa_2p0' : 0.261,
+                    'Sa_5p0' : 0.081,
+                    'Sa_10p0': 0.029,
+                    'Sa_pga' : 0.375,
+                    'Sa_pgv' : 0.563,
+                }
         return seismic_hazard_params
 
     def _get_vancouver_hazard_post2020(self, hazard_df, site_class):

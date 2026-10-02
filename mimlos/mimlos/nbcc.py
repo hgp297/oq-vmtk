@@ -10,7 +10,7 @@ from scipy.interpolate import RegularGridInterpolator
 
 NBCC_YEARS = np.array([1941, 1953, 1960, 1965, 1970, 1975, 1977, 1980, 1985, 1990, 1995, 2005, 2010, 2015, 2020, 2025])
 
-def determine_effective_nbcc_year(original_year_series, seismic_upgrade_year_series):
+def determine_effective_nbcc_year(original_year_series, seismic_upgrade_year_series, effective_upgrade_series):
     '''
     Determine effective code year for the building. It is the later of
     original code-year of construction or code-year of a renovation
@@ -27,20 +27,36 @@ def determine_effective_nbcc_year(original_year_series, seismic_upgrade_year_ser
     seismic_upgrade_year_series: pd.Series
         Actual year of latest major upgrade
 
+    effective_upgrade_series: pd.Series
+        "Yes" or "No" string if upgrade was comprehensive seismic
+        If No, seismic_upgrade_year will downgrade to original year
+        of construction
+
     Returns
     -------
     pd.Series of the effective code year.
     '''
     nbcc_code_year_original = original_year_series.fillna(1941)
     seismic_upgrade_year = seismic_upgrade_year_series.fillna(1941)
+    comprehensive_seismic_upgrade_year = pd.Series(
+        np.where(effective_upgrade_series == "Yes", 
+        seismic_upgrade_year,
+        nbcc_code_year_original)
+    )
 
-    effective_construction_year = np.maximum(nbcc_code_year_original, seismic_upgrade_year)
+    effective_construction_year = pd.Series(np.maximum(
+        nbcc_code_year_original.to_numpy(), 
+        comprehensive_seismic_upgrade_year.to_numpy()),
+        index=nbcc_code_year_original.index)
 
     def latest_code_year(effective_construction_year: pd.Series) -> pd.Series:
         idx = np.searchsorted(NBCC_YEARS, effective_construction_year.to_numpy(),
-                              side='right')
+                              side='right') - 1
+
+        idx = np.clip(idx, 0, len(NBCC_YEARS) - 1)
+
         return pd.Series(
-            NBCC_YEARS[idx-1],
+            NBCC_YEARS[idx],
             index=effective_construction_year.index,
         )
 
@@ -3362,15 +3378,15 @@ BENCHMARK_YEAR = {
 OCCUPANCY_LOAD_SEG_2025 = {
     'Office': 1.0,
     "Public":	1.5,
-    "Commercial":	2,
-    "Industrial":	3,
-    "Educational":	1,
-    "Residential":	1,
-    "Care/treatment (healthcare)":	1,
-    "Storage / Warehouse":	2,
+    "Commercial":	2.0,
+    "Industrial":	3.0,
+    "Educational":	1.0,
+    "Residential":	1.0,
+    "Care/treatment (healthcare)":	1.0,
+    "Storage / Warehouse":	2.0,
     "Parking":	0.5,
-    "Public Assembly":	1,
-    "Passenger Station":	1,
+    "Public Assembly":	1.0,
+    "Passenger Station":	1.0,
 }
 
 # in kPa
