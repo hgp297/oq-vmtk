@@ -393,18 +393,7 @@ class Inventory:
                 self.inventory_df["u_yj_yield_drift"],
                 self.inventory_df["u_pj_peak_drift"],
             )
-        ]              
-
-        # self.inventory_df["global_drift"] = [
-        #         (
-        #             np.sum(u_j[0]) / np.sum(h_j),
-        #             np.sum(u_j[1]) / np.sum(h_j),
-        #         )
-        #         for u_j, h_j in zip(
-        #             self.inventory_df["u_y_from_GA"],
-        #             self.inventory_df["h_j"],
-        #         )
-        #     ]
+        ]
 
     def estimate_loads(self):
         '''
@@ -645,7 +634,7 @@ class Inventory:
         za_zv_era = [1985, 1990, 1995]
         early_site_era = [2005, 2010]
         mid_site_era = [2015]
-        
+
         if loc == 'city_hall':
             if year in seismic_zone_era:
                 seismic_hazard_params = {
