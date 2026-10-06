@@ -373,8 +373,8 @@ class Inventory:
         # stack together
         self.inventory_df["story_forces_kN"] = [
             (
-                np.column_stack([Vyj[0]*np.sum(W_j), Vpj[0]*np.sum(W_j)]),
-                np.column_stack([Vyj[1]*np.sum(W_j), Vpj[1]*np.sum(W_j)]),
+                np.column_stack([Vyj[0]*np.sum(W_j), Vpj[0]*np.sum(W_j), 0.7*Vpj[0]*np.sum(W_j), 0.5*Vpj[0]*np.sum(W_j)]),
+                np.column_stack([Vyj[1]*np.sum(W_j), Vpj[1]*np.sum(W_j), 0.7*Vpj[1]*np.sum(W_j), 0.5*Vpj[1]*np.sum(W_j)]),
             )
             for Vyj, Vpj, W_j in zip(
                 self.inventory_df["Vyj_story_yield_shear"],
@@ -386,8 +386,8 @@ class Inventory:
         
         self.inventory_df["story_drift_capacity_m"] = [
             (
-                np.column_stack([uyj[0], upj[0]]),
-                np.column_stack([uyj[1], upj[1]]),
+                np.column_stack([uyj[0], upj[0], 2*upj[0], 10*upj[0]]),
+                np.column_stack([uyj[1], upj[1], 2*upj[1], 10*upj[1]]),
             )
             for uyj, upj in zip(
                 self.inventory_df["u_yj_yield_drift"],
@@ -557,6 +557,19 @@ class Inventory:
             (
                 hazus.HAZUS_DUCTILITY_TABLE.loc[code[0], lfrs_ns],
                 hazus.HAZUS_DUCTILITY_TABLE.loc[code[1], lfrs_ew],
+            )
+            for code, lfrs_ns, lfrs_ew
+            in zip(self.inventory_df["code_level"], 
+                   self.inventory_df["FEMA_lfrs_ns"], 
+                   self.inventory_df["FEMA_lfrs_ew"])
+        ]
+
+        
+
+        self.inventory_df["hazus_mu_times_Omega_p"] = [
+            (
+                hazus.HAZUS_DUCTILITY_TABLE.loc[code[0], lfrs_ns]*hazus.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ns],
+                hazus.HAZUS_DUCTILITY_TABLE.loc[code[1], lfrs_ew]*hazus.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ew],
             )
             for code, lfrs_ns, lfrs_ew
             in zip(self.inventory_df["code_level"], 
