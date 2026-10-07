@@ -324,6 +324,21 @@ class Inventory:
             )
         ]
 
+        # calculate yield from the assumption that displacements
+        # follows mode shape assuming regular building, and that
+        # yield base shear represents
+        self.inventory_df["modal_k1"] = [
+            (
+                nmfs.determine_sdof_stiffness(int(nst), T_n[0][0], m_0),
+                nmfs.determine_sdof_stiffness(int(nst), T_n[1][0], m_0),
+            )
+            for nst, T_n, m_0 in zip(
+                self.inventory_df["Floors Above Grade"],
+                self.inventory_df["T_n"],
+                self.inventory_df["m0_uniformly_distributed"],
+            )
+        ]
+
         # calculate (NMFS) yield from GA for each direction
         self.inventory_df["u_yj_yield_drift"] = [
             (
@@ -408,6 +423,13 @@ class Inventory:
         self.inventory_df['weight_x_kN'] = self.inventory_df.apply(
             nbcc.determine_content_weight, axis=1
         )
+
+        self.inventory_df['mass_x_tonne'] = self.inventory_df['weight_x_kN'] / units.g
+
+        # m0 is mass redistributed s.t. total mass stays the same
+        # but roof has 75% of floor mass
+        self.inventory_df['m0_uniformly_distributed'] = (([sum(x) for x in self.inventory_df['mass_x_tonne']])/
+                                                         (self.inventory_df['Floors Above Grade'] - 1 + 0.75))
         
         self.inventory_df['W_nbcc_x_kN'] = self.inventory_df.apply(
             nbcc.determine_seismic_W_nbcc, axis=1

@@ -5,6 +5,7 @@ from Xiong et al. (2016)
 
 import numpy as np
 import pandas as pd
+from scipy.linalg import eigh
 from openquake.vmtk.units import units
 from scipy.optimize import least_squares
 from math import sin, sinh, cos, cosh
@@ -44,38 +45,51 @@ def calculate_elastic_displacement(V_j, h_j, GA):
 
     return V_j * units.kN * h_j * units.m / (GA * units.kN)
 
-# def calculate_trilinear_peak_displacement(mu, Omega_p, delta_y):
-#     '''
-#     Calculate peak displacement of the trilinear capacity curve
-#     using Hazus ductility factors
+def determine_sdof_stiffness(nst, T_1, m_0, is_sos=False):
+    """
+    Determine k_0, the first mode stiffness corresponding to the
+    eigenproblem 
 
-#     delta_j = V_j * h_j / GA 
+    k_0 [A] = omega_0^2 m_0 [I]
 
-#     Can be calculated for 
-#     _d : design
-#     _y : yield
+    Assumes that mass is distributed uniform, except roof, which has 75% 
+    mass (modified I). Stiffness is distributed uniformly.
 
-#     This is valid for trilinear models, the peak point is at a 
-#     post-yield regime
+    Parameters
+    ----------
+    nst: int
+        Number of stories
+    T_1: int
+        Fundamental period
+    m_0: float
+        Mass from actual estimate, redistributed such that total mass 
+        is the same, but distribution follows the [1 1 1 0.75] pattern.
+    is_sos : bool, optional
+        True for soft-storey buildings. Softens the ground-floor
+        stiffness used to derive the mode shape. Default False.
+    """
+    I_mat = np.identity(nst)
+    if nst > 1:
+        I_mat[-1, -1] = 0.75
 
-#     Parameters
-#     ----------
-#     mu : float
-#         HAZUS ductility factor
+    
+    A_mat = np.zeros((nst, nst))
+    np.fill_diagonal(A_mat, 2)
+    A_mat[-1, -1] = 1
+    if is_sos:
+        A_mat[0, 0] = 1.20
+    for i in range(nst - 1):
+        A_mat[i, i + 1] = A_mat[i + 1, i] = -1
 
-#     Omega_p : float
-#         peak overstrength, ratio between V_p and V_y (Hazus lambda)
+    _, eigenvectors = eigh(A_mat, I_mat)
+    phi = eigenvectors[:, 0]
+    phi = phi / phi[-1]
 
-#     delta_y : np.array(number_of_stories)
-#         yield displacement of each story
+    lam = (phi @ I_mat @ phi) / (phi @ A_mat @ phi)
 
-#     Returns
-#     -------
-#     delta_p: np.array(number_of_stories)
-#         Peak displacement of each story
-#     '''
+    k_0 = lam * 4 * units.pi**2 * m_0 / (T_1**2)
+    return k_0
 
-#     return mu * Omega_p * delta_y
 
 
 def calculate_shear_stiffness(T_n, h_j, W_j):
