@@ -158,7 +158,7 @@ def determine_seismic_W_nbcc(row):
 
     Returns
     np.array: size(number_of_stories)
-        array of weight in N. First element is the level above the ground, while
+        array of weight in kN. First element is the level above the ground, while
         the last element is the roof.
 
     '''
@@ -229,7 +229,7 @@ def determine_content_weight(row):
 
     Returns
     np.array: size(number_of_stories)
-        array of weight in N. First element is the level above the ground, while
+        array of weight in kN. First element is the level above the ground, while
         the last element is the roof.
 
     '''
@@ -2786,6 +2786,11 @@ def determine_period_post_1995(lfrs, h_n):
     Determine the fundamental period using the 1995 NBCC
     estimation equations (and after 1995).
 
+    This period is a good estimate for elastic, initial period.
+    However for yielding estimate, some cracking is expected in RC
+    and masonry structures that would reduce the period. Thus, a longer
+    period should be used for stiffness estimation related to yielding.
+
     2015 onwards has a specific estimation to allow for the lengthening
     of periods for single-story buildings with steel deck or wood roof diaphragms
     presumably for warehouse/gathering hall type buildings. The lengthening 
@@ -2812,9 +2817,11 @@ def determine_period_post_1995(lfrs, h_n):
         Fundamental period in seconds
     '''
 
-    if lfrs == 'SMF':
+    # Saatcioglu and Humar states that MF with infill wall (SIW)
+    # are reliably predicted by the MF equation as well
+    if lfrs in ['SMF', 'SIW']:
         T_1 =  0.085*(h_n**0.75)
-    elif lfrs == 'CMF':
+    elif lfrs in ['CMF', 'CIW']:
         T_1 =   0.075*(h_n**0.75)
     elif lfrs == 'SBF':
         T_1 =   0.025*h_n
@@ -2836,6 +2843,81 @@ def determine_period_post_1995(lfrs, h_n):
         T_2 = T_1 / 3
 
     return [T_1, T_2]
+
+def determine_effective_period(lfrs, T_1, h_n, A_bldg, calibrate_to_yield=False):
+    '''
+    Readjusts the NBCC period, which is understood to be a lower-bound estimate
+    with a slightly longer period adjustment. This period is used to determine
+    pre-yielding stiffness, hypothesizing a linear elastic region between
+    (0, 0) and (Vy, dy). Additional calibration is made to reach typical
+    FEMA yield drifts per SFRS.
+
+    This period (NBCC) is a good estimate for elastic, initial period.
+    However for yielding estimate, some cracking is expected in RC
+    and masonry structures that would reduce the period. Thus, a longer
+    period should be used for stiffness estimation related to yielding.
+    reference Saatcioglu and Humar (2003).
+
+    The effective elastic rigidity varies between ap-
+    proximately 30% and 50% of the rigidity based on gross,
+    uncracked section properties.
+
+    Calibrating this to typical (FEMA) values, this adjustment is more like 15-20%
+
+    For SMF structures, Ram & Bagchi (11 CCEE) and Yousuf (2006) 
+    found that SMRF buildings were underpredicted by a factor of 1.5 - 2. 
+    We'll use 2 to better match typical yield drifts.
+    
+    
+
+    Parameters
+    -------------------
+    lfrs: string:
+        SEG typology of the SFRS
+
+    T_1: float
+        NBCC 2025 estimate of T_1
+
+    calibrate_to_yield: bool
+        If true, return the secant yield period.
+        If false, return the best estimate of elastic period
+
+    Returns
+    --------------------
+    T_eff: float
+        Effective period in an elastic behavior from (0, 0) to (Vy, dy), where
+        Vy are yield strength from NBC base shear * overstrength, and dy are 
+        typical FEMA yield drifts.
+    '''
+
+    # any structure with masonry/concrete in them should readjust
+    # T_eff to consider post-cracking stiffness
+
+    # TODO: these calibration make it so that yield drift is very 
+    # sensitive to story height. Consider some amplification 
+    # tied to empirical T1
+    if lfrs in ['SCW', 'SIW', 'CMF', 'CSW', 'CIW', 'PCW', 'PCF1', 'PCF2', 'RML', 'RMC', 'URM', 'CFS1']: 
+        T_eff = T_1
+        T_secant = T_1*(1/0.3)**0.5
+    elif lfrs in ['SMF']:
+        multiplier = 2.0 * T_1
+        T_eff = multiplier * T_1
+        T_secant = multiplier * T_1
+    # from Hafeez, Doudak, McClure (2018) for Canada. Also available is 
+    # Goda & Atkinson (2010) for BC
+    elif lfrs in ['WLF', 'WLF-P9', 'WPB']:
+        l_bldg = A_bldg**0.5
+        T_eff = 0.045 * (h_n/l_bldg * A_bldg)**0.36
+        T_secant = T_eff*(1/0.6)**0.5
+    else:
+        T_eff = T_1
+        T_secant = T_1
+
+    if calibrate_to_yield:
+        return T_secant
+    else:
+        return T_eff
+
 
 def distribute_story_shear(row, 
                            methodology_year=2025, 
@@ -3250,6 +3332,34 @@ def R_O_TABLE(lfrs, ductility_level='ductile'):
             "CFS2": 1.3, # conventional
         }
     return Ro_lookup_table[lfrs]
+
+def get_historical_R(code_year, lfrs, Rd, Ro, number_of_stories):
+    if code_year < 1965:
+        R_d = 1.0
+        R_o = 1.0
+    elif code_year == 1965:
+        C_factor = C_TABLE_1965(lfrs)
+        R_d = np.minimum(1/C_factor, 1.35)/1.35
+        R_o = 1.0
+    elif code_year == 1970:
+        K_factor = K_TABLE_1970(lfrs)
+        R_d = np.minimum(6.8/K_factor, 1.35*R_d)/1.35
+        R_o = 1.0
+    elif (code_year >= 1975) and (code_year <= 1985):
+        K_factor = K_TABLE_1975(lfrs, number_of_stories)
+        R_d_2025 = R_D_TABLE(lfrs, ductility_level='conventional')
+        R_d = np.minimum(6.8/K_factor, 1.5*R_d_2025)/1.5
+        R_o = 1.0
+    elif code_year in [1990, 1995]:
+        flexure_controlled = number_of_stories > 3
+        built_after_1995 = code_year >= 1995
+        R_factor = R_TABLE_1990(lfrs, flexure_controlled=flexure_controlled, built_after_1995=built_after_1995)
+        R_d = np.minimum(R_factor, R_d)
+        R_o = 1.0
+    else:
+        R_d = Rd
+        R_o = Ro
+    return R_d, R_o
 
 # index is Sa_0p2
 FA_TABLE_2005 = pd.DataFrame({

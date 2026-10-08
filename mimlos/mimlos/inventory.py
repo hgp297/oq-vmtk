@@ -195,7 +195,26 @@ class Inventory:
 
 
         '''
-        self.inventory_df = self.inventory_df.astype({'Floors Above Grade': int, 'Floors Below Grade': int})
+        # self.inventory_df = self.inventory_df.astype({'Floors Above Grade': int, 'Floors Below Grade': int})
+        self.inventory_df['LFRS'] = list(zip(self.inventory_df['Seismic Force Resisting System in the North-South Direction'], 
+                                             self.inventory_df['Seismic Force Resisting System in the East-West Direction']))
+        
+        # if no building height, h_j is 3.5 meters per floor
+        # if building height, divide it by n_stories
+        height = self.inventory_df[
+            "Building Height (Total Height Above Ground (m) to Roof Slab)"
+        ]
+        floors = self.inventory_df["Floors Above Grade"].astype(int)
+
+        self.inventory_df["h_j"] = [
+            np.full(
+                n,
+                3.5 if pd.isna(h) else h / n,
+            ) * units.m
+            for h, n in zip(height, floors)
+        ]
+
+        self.inventory_df["H_n"] = self.inventory_df["h_j"].map(sum)
 
 
     def estimate_Vs(self):
@@ -223,6 +242,32 @@ class Inventory:
         self.inventory_df['T_n'] = self.inventory_df.apply(
             nbcc.determine_period, axis=1
         ) 
+        
+        self.inventory_df['T_eff'] = [
+            (
+                nbcc.determine_effective_period(lfrs[0], T_n[0][0], h_n, A_bldg, calibrate_to_yield=False),
+                nbcc.determine_effective_period(lfrs[1], T_n[1][0], h_n, A_bldg, calibrate_to_yield=False),
+            )
+            for lfrs, T_n, h_n, A_bldg in zip(
+                self.inventory_df["LFRS"],
+                self.inventory_df["T_n"],
+                self.inventory_df["H_n"],
+                self.inventory_df["Ground Floor Plan Area (sq.m.)"],
+            )
+        ]
+        
+        self.inventory_df['T_secant'] = [
+            (
+                nbcc.determine_effective_period(lfrs[0], T_n[0][0], h_n, A_bldg, calibrate_to_yield=True),
+                nbcc.determine_effective_period(lfrs[1], T_n[1][0], h_n, A_bldg, calibrate_to_yield=True),
+            )
+            for lfrs, T_n, h_n, A_bldg in zip(
+                self.inventory_df["LFRS"],
+                self.inventory_df["T_n"],
+                self.inventory_df["H_n"],
+                self.inventory_df["Ground Floor Plan Area (sq.m.)"],
+            )
+        ]
 
         # calculate the original base shear
         def calc_design_base_shear_capacity(row):
@@ -253,7 +298,6 @@ class Inventory:
             nbcc.adjust_base_shear_capacity_SEG, axis=1
         )
 
-        # TODO: this is used in SEG to trigger higher tier
         def calc_SEG_base_shear_demand(row):
             # uses the 2025 NBCC seismic base shear demand for evaluation
             # VQE = kappa * alpha_q * V_N
@@ -296,20 +340,23 @@ class Inventory:
                                         self.inventory_df['Vyj_story_yield_shear'], 
                                         self.inventory_df['hazus_Omega_p_peak_overstrength'])]
 
-        # if no building height, h_j is 3.5 meters per floor
-        # if building height, divide it by n_stories
-        height = self.inventory_df[
-            "Building Height (Total Height Above Ground (m) to Roof Slab)"
-        ]
-        floors = self.inventory_df["Floors Above Grade"].astype(int)
+    
+        self.inventory_df['Vdj_story_design_shear_kN'] = [ (V_j[0]*np.sum(W_j), V_j[1]*np.sum(W_j))
+            for V_j, W_j, in zip(
+                self.inventory_df["Vdj_story_design_shear"],
+                self.inventory_df["W_nbcc_x_kN"],
+            )]
+        self.inventory_df['Vyj_story_yield_shear_kN'] = [ (V_j[0]*np.sum(W_j), V_j[1]*np.sum(W_j))
+            for V_j, W_j, in zip(
+                self.inventory_df["Vyj_story_yield_shear"],
+                self.inventory_df["W_nbcc_x_kN"],
+            )]
+        self.inventory_df['Vpj_story_peak_shear_kN'] = [ (V_j[0]*np.sum(W_j), V_j[1]*np.sum(W_j))
+            for V_j, W_j, in zip(
+                self.inventory_df["Vpj_story_peak_shear"],
+                self.inventory_df["W_nbcc_x_kN"],
+            )]
 
-        self.inventory_df["h_j"] = [
-            np.full(
-                n,
-                3.5 if pd.isna(h) else h / n,
-            ) * units.m
-            for h, n in zip(height, floors)
-        ]
 
         # calculate shear stiffness in each direction
         self.inventory_df["GA_building_shear_stiffness_kN"] = [
@@ -324,65 +371,98 @@ class Inventory:
             )
         ]
 
+        # TODO: pass soft story flag, modify for cracking
         # calculate yield from the assumption that displacements
         # follows mode shape assuming regular building, and that
         # yield base shear represents
-        self.inventory_df["modal_k1"] = [
+        self.inventory_df["modal_k0"] = [
             (
-                nmfs.determine_sdof_stiffness(int(nst), T_n[0][0], m_0),
-                nmfs.determine_sdof_stiffness(int(nst), T_n[1][0], m_0),
+                nmfs.determine_sdof_stiffness(int(nst), T_eff[0], m_0, lfrs[0]),
+                nmfs.determine_sdof_stiffness(int(nst), T_eff[1], m_0, lfrs[1]),
             )
-            for nst, T_n, m_0 in zip(
+            for nst, T_eff, m_0, lfrs in zip(
                 self.inventory_df["Floors Above Grade"],
-                self.inventory_df["T_n"],
-                self.inventory_df["m0_uniformly_distributed"],
+                self.inventory_df["T_secant"],
+                self.inventory_df["m0_redistributed"],
+                self.inventory_df["LFRS"],
             )
         ]
 
-        # calculate (NMFS) yield from GA for each direction
-        self.inventory_df["u_yj_yield_drift"] = [
-            (
-                nmfs.calculate_elastic_displacement(V_j[0]*np.sum(W_j), h_j, GA[0]),
-                nmfs.calculate_elastic_displacement(V_j[1]*np.sum(W_j), h_j, GA[1])
-            )
-            for V_j, W_j, h_j, GA in zip(
-                self.inventory_df["Vyj_story_yield_shear"],
-                self.inventory_df["W_nbcc_x_kN"],
-                self.inventory_df["h_j"],
-                self.inventory_df["GA_building_shear_stiffness_kN"],
-            )
-        ]
+        # yield drift ratio using k0 estimate
+        # uy * k0 = Vy
+    
+        self.inventory_df['u_yj_yield_drift'] = [ (V_j[0]/k0[0], V_j[1]/k0[1])
+            for V_j, k0 in zip(
+                self.inventory_df["Vyj_story_yield_shear_kN"],
+                self.inventory_df["modal_k0"]
+            )]
 
-        # calculate (NMFS) peak displacements for each direction
+        # calculate (k0) peak displacements for each direction
         self.inventory_df['u_pj_peak_drift'] = [tuple(mu * omega * uy for mu, omega, uy in zip(mu_, omega_, uy_)) 
-                                    for mu_, omega_, uy_ in zip(
-                                        self.inventory_df['hazus_mu_ductility'], 
-                                        self.inventory_df['hazus_Omega_p_peak_overstrength'],
-                                        self.inventory_df['u_yj_yield_drift'])]
+            for mu_, omega_, uy_ in zip(
+                self.inventory_df['hazus_mu_ductility'], 
+                self.inventory_df['hazus_Omega_p_peak_overstrength'],
+                self.inventory_df['u_yj_yield_drift'])]
 
-        # corresponding drift ratios
-        self.inventory_df["delta_yj_yield_drift_ratio"] = [
-            (
-                u_j[0] / h_j,
-                u_j[1] / h_j,
-            )
-            for u_j, h_j in zip(
-                self.inventory_df["u_yj_yield_drift"],
+        
+        self.inventory_df['delta_yj_yield_drift_ratio'] = [ (V_j[0]/k0[0]/h_j, V_j[1]/k0[1]/h_j)
+            for V_j, k0, h_j in zip(
+                self.inventory_df["Vyj_story_yield_shear_kN"],
+                self.inventory_df["modal_k0"],
                 self.inventory_df["h_j"],
-            )
-        ]       
+            )]
 
-        # corresponding drift ratios
-        self.inventory_df["delta_pj_peak_drift_ratio"] = [
-            (
-                u_j[0] / h_j,
-                u_j[1] / h_j,
-            )
-            for u_j, h_j in zip(
-                self.inventory_df["u_pj_peak_drift"],
-                self.inventory_df["h_j"],
-            )
-        ]
+        # calculate (k0) peak displacements for each direction
+        self.inventory_df['delta_pj_peak_drift_ratio'] = [tuple(mu * omega * delta_y for mu, omega, delta_y in zip(mu_, omega_, dy_)) 
+            for mu_, omega_, dy_ in zip(
+                self.inventory_df['hazus_mu_ductility'], 
+                self.inventory_df['hazus_Omega_p_peak_overstrength'],
+                self.inventory_df['delta_yj_yield_drift_ratio'])]
+
+        # # calculate (NMFS) yield from GA for each direction
+        # self.inventory_df["u_yj_yield_drift"] = [
+        #     (
+        #         nmfs.calculate_elastic_displacement(V_j[0]*np.sum(W_j), h_j, GA[0]),
+        #         nmfs.calculate_elastic_displacement(V_j[1]*np.sum(W_j), h_j, GA[1])
+        #     )
+        #     for V_j, W_j, h_j, GA in zip(
+        #         self.inventory_df["Vyj_story_yield_shear"],
+        #         self.inventory_df["W_nbcc_x_kN"],
+        #         self.inventory_df["h_j"],
+        #         self.inventory_df["GA_building_shear_stiffness_kN"],
+        #     )
+        # ]
+
+        # # calculate (NMFS) peak displacements for each direction
+        # self.inventory_df['u_pj_peak_drift'] = [tuple(mu * omega * uy for mu, omega, uy in zip(mu_, omega_, uy_)) 
+        #                             for mu_, omega_, uy_ in zip(
+        #                                 self.inventory_df['hazus_mu_ductility'], 
+        #                                 self.inventory_df['hazus_Omega_p_peak_overstrength'],
+        #                                 self.inventory_df['u_yj_yield_drift'])]
+
+        # # corresponding drift ratios
+        # self.inventory_df["delta_yj_yield_drift_ratio"] = [
+        #     (
+        #         u_j[0] / h_j,
+        #         u_j[1] / h_j,
+        #     )
+        #     for u_j, h_j in zip(
+        #         self.inventory_df["u_yj_yield_drift"],
+        #         self.inventory_df["h_j"],
+        #     )
+        # ]       
+
+        # # corresponding drift ratios
+        # self.inventory_df["delta_pj_peak_drift_ratio"] = [
+        #     (
+        #         u_j[0] / h_j,
+        #         u_j[1] / h_j,
+        #     )
+        #     for u_j, h_j in zip(
+        #         self.inventory_df["u_pj_peak_drift"],
+        #         self.inventory_df["h_j"],
+        #     )
+        # ]
 
 
         # stack together
@@ -425,11 +505,14 @@ class Inventory:
         )
 
         self.inventory_df['mass_x_tonne'] = self.inventory_df['weight_x_kN'] / units.g
+        
+        self.inventory_df['total_mass_tonne'] = [sum(x) for x in self.inventory_df['mass_x_tonne']]
 
         # m0 is mass redistributed s.t. total mass stays the same
         # but roof has 75% of floor mass
-        self.inventory_df['m0_uniformly_distributed'] = (([sum(x) for x in self.inventory_df['mass_x_tonne']])/
-                                                         (self.inventory_df['Floors Above Grade'] - 1 + 0.75))
+        self.inventory_df['m0_redistributed'] = np.where(self.inventory_df['Floors Above Grade'] > 1,
+                                                         self.inventory_df['total_mass_tonne'] /(self.inventory_df['Floors Above Grade'] - 1 + 0.75),
+                                                         self.inventory_df['total_mass_tonne'])
         
         self.inventory_df['W_nbcc_x_kN'] = self.inventory_df.apply(
             nbcc.determine_seismic_W_nbcc, axis=1
@@ -637,6 +720,9 @@ class Inventory:
                 )
 
         # TODO: stiffness-controlled buildings
+        # a likely solution:
+        # if yield drift hits the limit, recalculate stiffness k0
+        # such that k0 is the slope between (V_y, delta_limit)
 
     def _get_vancouver_hazard_pre2020(self, year, loc='city_hall'):
         '''

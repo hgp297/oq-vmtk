@@ -45,7 +45,7 @@ def calculate_elastic_displacement(V_j, h_j, GA):
 
     return V_j * units.kN * h_j * units.m / (GA * units.kN)
 
-def determine_sdof_stiffness(nst, T_1, m_0, is_sos=False):
+def determine_sdof_stiffness(nst, T_eff, m_0, lfrs, is_sos=False):
     """
     Determine k_0, the first mode stiffness corresponding to the
     eigenproblem 
@@ -59,19 +59,25 @@ def determine_sdof_stiffness(nst, T_1, m_0, is_sos=False):
     ----------
     nst: int
         Number of stories
-    T_1: int
-        Fundamental period
+    T_eff: int
+        Effective pre-yield period, considering post-cracking pre-yield
+        behavior in RC/masonry and NBC underprediction in SMF.
+        Basis is found in Saatcioglu and Humar (2003).
     m_0: float
         Mass from actual estimate, redistributed such that total mass 
         is the same, but distribution follows the [1 1 1 0.75] pattern.
     is_sos : bool, optional
         True for soft-storey buildings. Softens the ground-floor
         stiffness used to derive the mode shape. Default False.
+
+    Returns
+    ----------
+    k0: float
+        Stiffness
     """
     I_mat = np.identity(nst)
     if nst > 1:
         I_mat[-1, -1] = 0.75
-
     
     A_mat = np.zeros((nst, nst))
     np.fill_diagonal(A_mat, 2)
@@ -87,9 +93,11 @@ def determine_sdof_stiffness(nst, T_1, m_0, is_sos=False):
 
     lam = (phi @ I_mat @ phi) / (phi @ A_mat @ phi)
 
-    k_0 = lam * 4 * units.pi**2 * m_0 / (T_1**2)
+    k_0 = lam * 4 * units.pi**2 * m_0 / (T_eff**2)
     return k_0
 
+
+# def triangular_ritz_displacement(nst, Vb, )
 
 
 def calculate_shear_stiffness(T_n, h_j, W_j):
