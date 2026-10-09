@@ -291,9 +291,6 @@ class Inventory:
         # at the time
 
         # we assume that SEG adjustments will account for overstrength
-        self.inventory_df['original_nbcc_factored_Ve'] = self.inventory_df.apply(
-            nbcc.factor_lateral_earthquake_load, axis=1
-        )
         self.inventory_df['SEG_adjusted_NBCC_factored_Ve'] = self.inventory_df.apply(
             nbcc.adjust_base_shear_capacity_SEG, axis=1
         )
@@ -331,10 +328,14 @@ class Inventory:
         the original design strength.
         '''
         self.inventory_df['Vdj_story_design_shear'] = self.inventory_df['Vd_distributed_SEG_adjusted_NBCC_factored_Ve'].copy()
+        # self.inventory_df['Vyj_story_yield_shear'] = [tuple(x * y for x, y in zip(t1, t2)) 
+        #                             for t1, t2 in zip(
+        #                                 self.inventory_df['Vdj_story_design_shear'], 
+        #                                 self.inventory_df['hazus_Omega_y_yield_overstrength'])]
         self.inventory_df['Vyj_story_yield_shear'] = [tuple(x * y for x, y in zip(t1, t2)) 
                                     for t1, t2 in zip(
                                         self.inventory_df['Vdj_story_design_shear'], 
-                                        self.inventory_df['hazus_Omega_y_yield_overstrength'])]
+                                        self.inventory_df['Ro_SEG'])]
         self.inventory_df['Vpj_story_peak_shear'] = [tuple(x * y for x, y in zip(t1, t2)) 
                                     for t1, t2 in zip(
                                         self.inventory_df['Vyj_story_yield_shear'], 
@@ -682,7 +683,51 @@ class Inventory:
                    self.inventory_df["FEMA_lfrs_ew"])
         ]
 
+        ##### SEG adjustments
+        self.inventory_df["SEG_load_factor_adjustment"] = [
+            (
+                nbcc.adjusted_earthquake_load_factor(lfrs=sfrs[0], code_year=yr),
+                nbcc.adjusted_earthquake_load_factor(lfrs=sfrs[1], code_year=yr),
+            )
+            for yr, sfrs,
+            in zip(self.inventory_df["effective_nbcc_year"], 
+                    self.inventory_df["LFRS"])
+        ]
 
+        # map historical Rd Ro from SEG
+        self.inventory_df["Rd_SEG"] = [
+            (
+                nbcc.get_historical_Rd(code_year=yr, code_level=lvl[0], lfrs=sfrs[0], number_of_stories=ns),
+                nbcc.get_historical_Rd(code_year=yr, code_level=lvl[1], lfrs=sfrs[1], number_of_stories=ns),
+            )
+            for yr, lvl, sfrs, ns
+            in zip(self.inventory_df["effective_nbcc_year"], 
+                    self.inventory_df["code_level"], 
+                    self.inventory_df["LFRS"],
+                    self.inventory_df["Floors Above Grade"])
+        ]
+
+        
+        self.inventory_df["Ro_SEG"] = [
+            (
+                nbcc.get_historical_Ro(code_year=yr, code_level=lvl[0], lfrs=sfrs[0]),
+                nbcc.get_historical_Ro(code_year=yr, code_level=lvl[1], lfrs=sfrs[1]),
+            )
+            for yr, lvl, sfrs
+            in zip(self.inventory_df["effective_nbcc_year"], 
+                    self.inventory_df["code_level"], 
+                    self.inventory_df["LFRS"])
+        ]
+
+        self.inventory_df["SEG_total_yield_overstrength"] = [
+            (
+                lf[0]*ro[0],
+                lf[1]*ro[1],
+            )
+
+            for lf, ro in zip(
+                self.inventory_df['SEG_load_factor_adjustment'], 
+                self.inventory_df['Ro_SEG'])]
             
 
     def determine_seismic_hazard_params(self, year, site_class, location):

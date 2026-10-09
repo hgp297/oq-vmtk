@@ -24,7 +24,7 @@ SEG_TO_FEMA_TYPOLOGY = {
     "RML": "RM1",
     "RMC": "RM2",
     "URM": "URM",
-    "CFS1": "S3",
+    "CFS1": "W2",
     "CFS2": "S3",
 }
 

@@ -10,6 +10,15 @@ from scipy.interpolate import RegularGridInterpolator
 
 NBCC_YEARS = np.array([1941, 1953, 1960, 1965, 1970, 1975, 1977, 1980, 1985, 1990, 1995, 2005, 2010, 2015, 2020, 2025])
 
+LFRS_TO_MATERIAL = {
+    "SMF": "steel", "SBF": "steel", "SLF": "steel", "CFS2": "steel",
+    "SCW": "concrete", "CMF": "concrete", "CSW": "concrete",
+    "PCW": "concrete", "PCF1": "concrete", "PCF2": "concrete",
+    "WLF-P9": "wood", "WLF": "wood", "WPB": "wood", "CFS1": "wood",
+    "SIW": "masonry", "CIW": "masonry", "RML": "masonry", "RMC": "masonry",
+    "URM": "urm",
+}
+
 def determine_effective_nbcc_year(original_year_series, seismic_upgrade_year_series, effective_upgrade_series):
     '''
     Determine effective code year for the building. It is the later of
@@ -324,71 +333,53 @@ def get_code_bins(lfrs):
         
 
     
-# correspond to worst-case load factor for lateral E loads
-def factor_lateral_earthquake_load(row):
-    '''
-    Return the equivalent limit-state design load factor for the LFRS depending on the code-year.
+# # correspond to worst-case load factor for lateral E loads
+# def factor_lateral_earthquake_load(row):
+#     '''
+#     Return the equivalent limit-state design load factor for the LFRS depending on the code-year.
     
-    Params
-    --------
-    row['effective_nbcc_year']: int
-        year of code design
+#     Params
+#     --------
+#     row['effective_nbcc_year']: int
+#         year of code design
     
-    row["Seismic Force Resisting System in the North-South Direction"]: str
-        modern-classification of the n-s lateral force resisting system in the 
-        NRC Seismic Evaluation Guidelines typologies
+#     row["Seismic Force Resisting System in the North-South Direction"]: str
+#         modern-classification of the n-s lateral force resisting system in the 
+#         NRC Seismic Evaluation Guidelines typologies
 
-    row["Seismic Force Resisting System in the East-West Direction"]: str
-        modern-classification of the e-w lateral force resisting system in the 
-        NRC Seismic Evaluation Guidelines typologies
+#     row["Seismic Force Resisting System in the East-West Direction"]: str
+#         modern-classification of the e-w lateral force resisting system in the 
+#         NRC Seismic Evaluation Guidelines typologies
     
-    row['original_nbcc_unfactored_Vd']: tuple
-        Unfactored base shear calculated from nbcc.determine_code_strength
-        (vs_ns, vs_ew)
+#     row['original_nbcc_unfactored_Vd']: tuple
+#         Unfactored base shear calculated from nbcc.determine_code_strength
+#         (vs_ns, vs_ew)
 
-    Returns
-    -------
-    tuple
-        Factored base shear in each direction (ns, ew)
-    '''
+#     Returns
+#     -------
+#     tuple
+#         Factored base shear in each direction (ns, ew)
+#     '''
 
-    code_year = row["effective_nbcc_year"]
-    vs_ns, vs_ew = row["original_nbcc_unfactored_Vd"]
-    lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
-    lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
+#     code_year = row["effective_nbcc_year"]
+#     vs_ns, vs_ew = row["original_nbcc_unfactored_Vd"]
+#     lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
+#     lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
 
-    def lookup_load_factor(lfrs):
-        is_concrete = lfrs in ['SCW', 'CMF', 'CSW', 'CIW', 'PCW', 'PCF1', 'PCF2']
-        return {
-            1941: 2.0, # working stress design, estimated from reinforcing steel stress limited to 50% of yield 
-            1953: 2.0, # working stress design
-            1960: 2.0, # working stress design
-            1965: 1.35 if is_concrete else 2.0, # ultimate strength design allowed as alternative, based on ACI 1963
-            1970: 1.80 if is_concrete else 2.0, # ultimate strength design allowed as alternative, based on ACI 1963
-            1975: 1.80 if is_concrete else 1.50, # ultimate strength from concrete CSA allowed (1.8 worst), but limit state introduced
-            1977: 1.80 if is_concrete else 1.50, # limit state design
-            1980: 1.80 if is_concrete else 1.50, # limit state design
-            1985: 1.50, # CSA concrete adopts limit state design in 1984
-            1990: 1.0, # reduced load factor to acknowledge extreme event
-            1995: 1.0, 
-            2005: 1.0, 
-            2010: 1.0, 
-            2015: 1.0, 
-            2020: 1.0,
-            2025: 1.0
-        }[code_year]
-
-    load_factor_ns = lookup_load_factor(lfrs_ns)
-    load_factor_ew = lookup_load_factor(lfrs_ew)
+#     load_factor_ns = lookup_load_factor(lfrs_ns, code_year)
+#     load_factor_ew = lookup_load_factor(lfrs_ew, code_year)
 
 
-    return load_factor_ns * vs_ns, load_factor_ew * vs_ew
+#     return load_factor_ns * vs_ns, load_factor_ew * vs_ew
 
 def adjust_base_shear_capacity_SEG(row):
     '''
     Return estimated minimum base shear capacity based on the 2025 Level 3
     Seismic Evaluation Guidelines. This accounts for the variety of "load
     factor" methods (ultimate, limit states) in Canada for previous versions.
+
+    This also accounts for the load factors originally applied in the load 
+    combinations.
     
     Params
     --------
@@ -418,29 +409,8 @@ def adjust_base_shear_capacity_SEG(row):
     lfrs_ns = row["Seismic Force Resisting System in the North-South Direction"]
     lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
 
-    def adjusted_earthquake_load_factor(lfrs):
-        is_ultimate_design = lfrs in ['SCW', 'CMF', 'CSW', 'CIW', 'PCW', 'PCF1', 'PCF2']
-        return {
-            1941: 1.0, # working stress design, estimated from reinforcing steel stress limited to 50% of yield 
-            1953: 1.0, # working stress design
-            1960: 1.0, # working stress design
-            1965: 1.35, # SEG does not yet split for ultimate vs. limit state
-            1970: 1.35,
-            1975: 1.35 if is_ultimate_design else 1.05, # ultimate strength from concrete CSA allowed (1.8 worst), but limit state introduced
-            1977: 1.35 if is_ultimate_design else 1.05, # limit state design
-            1980: 1.35 if is_ultimate_design else 1.05, # limit state design
-            1985: 1.35 if is_ultimate_design else 1.05, # limit state design
-            1990: 1.0, # reduced load factor to acknowledge extreme event
-            1995: 1.0, 
-            2005: 1.0, 
-            2010: 1.0, 
-            2015: 1.0, 
-            2020: 1.0,
-            2025: 1.0
-        }[code_year]
-
-    alpha_q_ns = adjusted_earthquake_load_factor(lfrs_ns)
-    alpha_q_ew = adjusted_earthquake_load_factor(lfrs_ew)
+    alpha_q_ns = adjusted_earthquake_load_factor(lfrs_ns, code_year)
+    alpha_q_ew = adjusted_earthquake_load_factor(lfrs_ew, code_year)
 
 
     return alpha_q_ns * vs_ns, alpha_q_ew * vs_ew
@@ -811,8 +781,8 @@ def vs_nbcc_1970(row, seismic_hazard_params):
 
     # "A ductile moment-resisting space frame is a space frame that is designed to resist
     # all the specified seismic forces and that, in addition, has adequate ductility or
-    # energy-absorptive capacity."
-    # TODO: request review on this
+    # energy-absorptive capacity."0
+    
     # ductile systems weren't provided until 1973
     ductile_moment_frames = ["SMF", "CMF"]
 
@@ -1323,7 +1293,7 @@ def vs_nbcc_1990(row, seismic_hazard_params):
     # "A ductile moment-resisting space frame is a space frame that is designed to resist
     # all the specified seismic forces and that, in addition, has adequate ductility or
     # energy-absorptive capacity."
-    # TODO: request review on this
+    
     ductile_moment_frames = ["SMF", "CMF"]
 
     # TODO: request review on this
@@ -2610,8 +2580,8 @@ def vs_nbcc_2025(row, seismic_hazard_params, historical_mode=False):
         "RML": 'ductile' if built_after_2015 else 'moderate', # "nominal ductility" RM depending on construction year
         "RMC": 'ductile' if built_after_2015 else 'moderate', # "nominal ductility" RM depending on construction year
         "URM": 'conventional',
-        "CFS1": 'ductile', # non-ductile steel frame assumed, other category
-        "CFS2": 'ductile',
+        "CFS1": 'moderate', # non-ductile steel frame assumed, other category. wood behavior, but 2010 has CFS category
+        "CFS2": 'moderate',
     }
 
     # ductile coupled walls is assumed to be classified as "CSW", which is ductile shear wall as it is the more conservative one
@@ -2830,8 +2800,8 @@ def determine_period_post_1995(lfrs, h_n):
 
     steel_buildings = ["SMF", "SBF", "SLF"]
     concrete_buildings = ["CMF", "CSW", "PCW", "CIW", "PCF1", "PCF2", "RML", "RMC", "URM"]
-    mixed_buildings = ["SIW", "SCW", "CFS1", "CFS2"]
-    wood_buildings = ["WLF", "WLF-P9", "WPB"]
+    mixed_buildings = ["SIW", "SCW", "CFS2"]
+    wood_buildings = ["WLF", "WLF-P9", "WPB", "CFS1"]
 
     if lfrs in steel_buildings:
         T_2 = 0.338 * T_1
@@ -2896,7 +2866,7 @@ def determine_effective_period(lfrs, T_1, h_n, A_bldg, calibrate_to_yield=False)
     # TODO: these calibration make it so that yield drift is very 
     # sensitive to story height. Consider some amplification 
     # tied to empirical T1
-    if lfrs in ['SCW', 'SIW', 'CMF', 'CSW', 'CIW', 'PCW', 'PCF1', 'PCF2', 'RML', 'RMC', 'URM', 'CFS1']: 
+    if lfrs in ['SCW', 'SIW', 'CMF', 'CSW', 'CIW', 'PCW', 'PCF1', 'PCF2', 'RML', 'RMC', 'URM']: 
         T_eff = T_1
         T_secant = T_1*(1/0.3)**0.5
     elif lfrs in ['SMF']:
@@ -2905,7 +2875,7 @@ def determine_effective_period(lfrs, T_1, h_n, A_bldg, calibrate_to_yield=False)
         T_secant = multiplier * T_1
     # from Hafeez, Doudak, McClure (2018) for Canada. Also available is 
     # Goda & Atkinson (2010) for BC
-    elif lfrs in ['WLF', 'WLF-P9', 'WPB']:
+    elif lfrs in ['WLF', 'WLF-P9', 'WPB', 'CFS1']:
         l_bldg = A_bldg**0.5
         T_eff = 0.045 * (h_n/l_bldg * A_bldg)**0.36
         T_secant = T_eff*(1/0.6)**0.5
@@ -3014,7 +2984,7 @@ def distribute_story_shear(row,
 
 def C_TABLE_1965(lfrs):
     # TODO: request review on this
-    ductile_mrf_rcsw = ["SMF", "SCW", "SIW", "CMF", "CIW", "CFS1"]
+    ductile_mrf_rcsw = ["SMF", "SCW", "SIW", "CMF", "CIW"]
     if lfrs in ductile_mrf_rcsw:
         return 0.75
     else:
@@ -3135,11 +3105,36 @@ def R_TABLE_1990(lfrs, flexure_controlled, built_after_1995=False):
         "RML": 2.0 if built_after_1995 else 1.5, # "nominal ductility" RM depending on construction year
         "RMC": 2.0 if built_after_1995 else 1.5, # "nominal ductility" RM depending on construction year 
         "URM": 1.0,
-        "CFS1": 1.5, # non-ductile steel frame assumed, other category
+        "CFS1": 1.5, # wood, non-ductile assumed
         "CFS2": 1.5
         }
     return R_lookup_table[lfrs]
 
+# For "low-code" buildings designed between the NBC 1970 and the NBC 1985 (both inclusive), Rd for
+# conventional construction should be used when its ductility level cannot be determined from
+# existing documentation.
+DUCTILITY_LOOKUP_TABLE = pd.DataFrame({
+    "WLF-P9":   ['moderate', 'moderate', 'conventional', 'conventional'],
+    "WLF":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "WPB":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "SMF":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "SBF":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "SLF":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "SCW":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "SIW":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "CMF":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "CSW":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "CIW":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "PCW":      ['moderate', 'moderate', 'conventional', 'conventional'],
+    "PCF1":     ['moderate', 'moderate', 'conventional', 'conventional'],
+    "PCF2":     ['moderate', 'moderate', 'conventional', 'conventional'],
+    "RML":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "RMC":      ['ductile', 'moderate', 'conventional', 'conventional'],
+    "URM":      ['limited', 'limited', 'conventional', 'conventional'],
+    "CFS1":     ['moderate', 'moderate', 'conventional', 'conventional'],
+    "CFS2":     ['moderate', 'moderate', 'conventional', 'conventional'],
+},
+index=['high-code', 'moderate-code', 'low-code', 'pre-code'], dtype=object)
 
 def R_D_TABLE(lfrs, ductility_level='ductile'):
     # ductility
@@ -3203,8 +3198,8 @@ def R_D_TABLE(lfrs, ductility_level='ductile'):
             "CMF": 1.5, # conventional ductile mrf
             "CSW": 1.5, # conventional ductile shear wall
             "CIW": 1.5, # conventional ductile rm wall controls
-            "PCW": 1.5, # conventional ductile tilt-up wall
-            "PCF1": 1.5, # conventional ductile tilt-up wall controls
+            "PCW": 1.5, # limited ductile tilt-up wall
+            "PCF1": 1.5, # limited ductile tilt-up wall controls
             "PCF2": 1.5, # conventional ductile mrf
             "RML": 1.5, # conventional ductile rm
             "RMC": 1.5, # conventional
@@ -3226,8 +3221,8 @@ def R_D_TABLE(lfrs, ductility_level='ductile'):
             "CMF": 1.5, # conventional ductile mrf
             "CSW": 1.5, # conventional ductile shear wall
             "CIW": 1.5, # conventional ductile rm wall controls
-            "PCW": 1.5, # conventional ductile tilt-up wall
-            "PCF1": 1.5, # conventional ductile tilt-up wall controls
+            "PCW": 1.3, # conventional ductile tilt-up wall
+            "PCF1": 1.3, # conventional ductile tilt-up wall controls
             "PCF2": 1.5, # conventional ductile mrf
             "RML": 1.5, # conventional ductile rm
             "RMC": 1.5, # conventional
@@ -3263,7 +3258,7 @@ def R_O_TABLE(lfrs, ductility_level='ductile'):
             "CFS2": 1.3, # "limited ductility" diagonal strap concentrically braced wall (better than conventional)
         }
     
-    if ductility_level == 'moderate':
+    elif ductility_level == 'moderate':
         Ro_lookup_table = {
             "WLF-P9": 1.5, # assuming CAN/CSA-O86.1-M moderately ductile MRF
             "WLF": 1.5, # assuming CAN/CSA-O86.1-M moderately ductile MRF
@@ -3271,10 +3266,10 @@ def R_O_TABLE(lfrs, ductility_level='ductile'):
             "SMF": 1.5, # moderately ductile mrf
             "SBF": 1.3, # moderately ductile braced frame
             "SLF": 1.5, # moderately ductile mrf
-            "SCW": 1.6, # moderately ductile shear wall controls
+            "SCW": 1.4, # moderately ductile shear wall controls
             "SIW": 1.5, # moderately ductile rm wall controls
             "CMF": 1.4, # moderately ductile mrf
-            "CSW": 1.6, # moderately ductile shear wall
+            "CSW": 1.4, # moderately ductile shear wall
             "CIW": 1.5, # moderately ductile rm wall controls
             "PCW": 1.3, # moderately ductile tilt-up wall
             "PCF1": 1.3, # moderately ductile tilt-up wall controls
@@ -3333,33 +3328,288 @@ def R_O_TABLE(lfrs, ductility_level='ductile'):
         }
     return Ro_lookup_table[lfrs]
 
-def get_historical_R(code_year, lfrs, Rd, Ro, number_of_stories):
+def lookup_load_factor(lfrs, code_year):
+    is_concrete = lfrs in ['SCW', 'CMF', 'CSW', 'CIW', 'PCW', 'PCF1', 'PCF2']
+    return {
+        1941: 2.0, # working stress design, estimated from reinforcing steel stress limited to 50% of yield 
+        1953: 2.0, # working stress design
+        1960: 2.0, # working stress design
+        1965: 1.35 if is_concrete else 2.0, # ultimate strength design allowed as alternative, based on ACI 1963
+        1970: 1.80 if is_concrete else 2.0, # ultimate strength design allowed as alternative, based on ACI 1963
+        1975: 1.80 if is_concrete else 1.50, # ultimate strength from concrete CSA allowed (1.8 worst), but limit state introduced
+        1977: 1.80 if is_concrete else 1.50, # limit state design
+        1980: 1.80 if is_concrete else 1.50, # limit state design
+        1985: 1.50, # CSA concrete adopts limit state design in 1984
+        1990: 1.0, # reduced load factor to acknowledge extreme event
+        1995: 1.0, 
+        2005: 1.0, 
+        2010: 1.0, 
+        2015: 1.0, 
+        2020: 1.0,
+        2025: 1.0
+    }[code_year]
+
+def adjusted_earthquake_load_factor(lfrs, code_year):
+    '''
+    Return estimated minimum base shear capacity based on the 2025 Level 3
+    Seismic Evaluation Guidelines. This accounts for the variety of "load
+    factor" methods (ultimate, limit states) in Canada for previous versions.
+
+    This also accounts for the load factors originally applied in the load 
+    combinations.
+
+    Pre 1965: 
+        working stress design, which has no load factor, but a rough 1.50 to 
+        account for the ASD to LS conversion
+    1965-1970:
+        If ultimate strength design, a load factor is introduced and no need
+        for further adjustments. This is from the assumed earthquake combo of 
+        0.75*(1.4D + 1.7L + 1.8E), not the generic worst case 1.4D + 1.8E. This 
+        is the 1.35 value in the SEG table.
+    1975-1980:
+        Non-concrete switched to limit state design, with a load factor
+        of 1.50. This is further adjusted with the 0.75 factor, ultimately
+        resulting in 1.05 (SEG table value)
+
+    Deviating from SEG, this is cognizant of the actual switch of the material
+    from working stress design to limit state design.
+    '''
+
+    # from roughly the allowable stress of the material
+    # allow for 33% increase in allowable stress for seismic (similar to 0.75 factor)
+    asd_to_yield = {
+        "steel": 1.2,       # 0.66Fy flexure -> 0.88Fy; 0.6Fy tension -> 0.8Fy
+        "concrete": 1.5,    # Grade 40 rebar at 0.5fy -> 0.67fy (1.9 for Grade 60)
+        "wood": 2.0,        # O86 duration factor only 1.15; strength/allowable ~2.3
+        "masonry": 2.0,     # steel flexure ~1.5, shear 2-3
+        "urm": 2.5,
+    }
+
+    working_stress_factor = asd_to_yield[LFRS_TO_MATERIAL[lfrs]]
+
+    if LFRS_TO_MATERIAL[lfrs] == "steel":
+        return  {
+        1941: working_stress_factor, # working stress design
+        1953: working_stress_factor, 
+        1960: working_stress_factor, 
+        1965: working_stress_factor, 
+        1970: working_stress_factor, 
+        1975: 0.7*1.50, # limit state introduced for steel
+        1977: 0.7*1.50, 
+        1980: 0.7*1.50, 
+        1985: 0.7*1.50, 
+        1990: 1.0, # reduced load factor to acknowledge extreme event
+        1995: 1.0, 
+        2005: 1.0, 
+        2010: 1.0, 
+        2015: 1.0, 
+        2020: 1.0,
+        2025: 1.0
+    }[code_year]
+    elif LFRS_TO_MATERIAL[lfrs] == "concrete":
+        return  {
+        1941: working_stress_factor, # working stress design
+        1953: working_stress_factor, # working stress design
+        1960: working_stress_factor, # working stress design
+        1965: 0.75*1.8, # ultimate strength design allowed as alternative, based on ACI 1963
+        1970: 0.75*1.8, # ultimate strength design allowed as alternative, based on ACI 1963
+        1975: 0.75*1.8, # ultimate strength from concrete CSA allowed (1.8 worst, but 0.75*1.8 eq specific)
+        1977: 0.75*1.8, # ultimate strength from concrete CSA allowed (1.8 worst, but 0.75*1.8 eq specific)
+        1980: 0.75*1.8, # ultimate strength from concrete CSA allowed (1.8 worst, but 0.75*1.8 eq specific)
+        1985: 0.7*1.50, # CSA concrete adopts limit state design in 1984
+        1990: 1.0, # reduced load factor to acknowledge extreme event
+        1995: 1.0, 
+        2005: 1.0, 
+        2010: 1.0, 
+        2015: 1.0, 
+        2020: 1.0,
+        2025: 1.0
+    }[code_year]
+    
+    elif LFRS_TO_MATERIAL[lfrs] == "wood":
+        return  {
+        1941: working_stress_factor, # working stress design
+        1953: working_stress_factor, 
+        1960: working_stress_factor, 
+        1965: working_stress_factor, 
+        1970: working_stress_factor, 
+        1975: working_stress_factor, 
+        1977: working_stress_factor, 
+        1980: working_stress_factor, 
+        1985: 0.7*1.50, # wood switched to limit state in 1984
+        1990: 1.0, # reduced load factor to acknowledge extreme event
+        1995: 1.0, 
+        2005: 1.0, 
+        2010: 1.0, 
+        2015: 1.0, 
+        2020: 1.0,
+        2025: 1.0
+    }[code_year]
+
+    # masonry case
+    else:
+        return  {
+        1941: working_stress_factor, # working stress design
+        1953: working_stress_factor, 
+        1960: working_stress_factor, 
+        1965: working_stress_factor, 
+        1970: working_stress_factor, 
+        1975: working_stress_factor, 
+        1977: working_stress_factor, 
+        1980: working_stress_factor, 
+        1985: working_stress_factor, 
+        1990: working_stress_factor, 
+        1995: 1.0, # masonry switched to limit state in 1994
+        2005: 1.0, 
+        2010: 1.0, 
+        2015: 1.0, 
+        2020: 1.0,
+        2025: 1.0
+    }[code_year]
+
+def get_historical_Rd(code_year, code_level, lfrs, number_of_stories):
+    
+    ductility_level = DUCTILITY_LOOKUP_TABLE.loc[code_level, lfrs]
+    Rd = R_D_TABLE(lfrs, ductility_level=ductility_level)
+
     if code_year < 1965:
         R_d = 1.0
-        R_o = 1.0
     elif code_year == 1965:
-        C_factor = C_TABLE_1965(lfrs)
-        R_d = np.minimum(1/C_factor, 1.35)/1.35
-        R_o = 1.0
+        # this seems too harsh (below 1.0), capping at 1.0
+        # C_factor = C_TABLE_1965(lfrs)
+        # R_d = np.minimum(1/C_factor, 1.35)/1.35
+        R_d = 1.0
     elif code_year == 1970:
         K_factor = K_TABLE_1970(lfrs)
-        R_d = np.minimum(6.8/K_factor, 1.35*R_d)/1.35
-        R_o = 1.0
+        R_d = np.minimum(6.8/K_factor, 1.35*Rd)/1.35
     elif (code_year >= 1975) and (code_year <= 1985):
         K_factor = K_TABLE_1975(lfrs, number_of_stories)
-        R_d_2025 = R_D_TABLE(lfrs, ductility_level='conventional')
+        R_d_2025 = R_D_TABLE(lfrs, ductility_level=ductility_level)
         R_d = np.minimum(6.8/K_factor, 1.5*R_d_2025)/1.5
-        R_o = 1.0
     elif code_year in [1990, 1995]:
         flexure_controlled = number_of_stories > 3
         built_after_1995 = code_year >= 1995
         R_factor = R_TABLE_1990(lfrs, flexure_controlled=flexure_controlled, built_after_1995=built_after_1995)
-        R_d = np.minimum(R_factor, R_d)
-        R_o = 1.0
+        R_d = np.minimum(R_factor, Rd)
     else:
         R_d = Rd
-        R_o = Ro
-    return R_d, R_o
+
+    return R_d
+
+def get_historical_Ro(code_year, code_level, lfrs):
+    '''
+    Readapted from SEG Table 3.3. Whereas SEG grants no Ro to pre-modern
+    building for the purposes of scoring assessment, this table aims to
+    more accurately adjust design strength at the time to an actual yield
+    strength. 
+
+    Several layers are nested:
+    Working stress era assumes the value as shown.
+    Else, a level of ductility is assumed based on the era of construction.
+    This maps to an overstrength value, which is floored at 1.3 to represent
+    the inherent bump hidden in the (1/phi) value used in limit state design.
+    '''
+
+    ductility_level = DUCTILITY_LOOKUP_TABLE.loc[code_level, lfrs]
+
+    # Ro, assuming modern interpretation of conventional, limited, moderate, ductile
+    Ro = R_O_TABLE(lfrs, ductility_level=ductility_level)
+
+    # working stress era Ro
+    # judgment-based numbers
+    material_to_Ro_asd = {
+        'steel': 1.3,
+        'concrete': 1.25,
+        'wood': 1.1,
+        'masonry': 1.1,
+        'urm': 1.1
+    }
+
+    R_o_asd = material_to_Ro_asd[LFRS_TO_MATERIAL[lfrs]]
+
+    # 1/phi factor is not accounted for in load factor adjustment
+    # floor this at 1.3
+
+    if LFRS_TO_MATERIAL[lfrs] == "steel":
+        return  {
+        1941: R_o_asd, # working stress design
+        1953: R_o_asd, 
+        1960: R_o_asd, 
+        1965: R_o_asd, 
+        1970: R_o_asd, 
+        1975: np.max([Ro, 1.3]),
+        1977: np.max([Ro, 1.3]),
+        1980: np.max([Ro, 1.3]),
+        1985: np.max([Ro, 1.3]),
+        1990: np.max([Ro, 1.3]),
+        1995: np.max([Ro, 1.3]),
+        2005: np.max([Ro, 1.3]),
+        2010: np.max([Ro, 1.3]),
+        2015: np.max([Ro, 1.3]),
+        2020: np.max([Ro, 1.3]),
+        2025: np.max([Ro, 1.3]),
+    }[code_year]
+
+    elif LFRS_TO_MATERIAL[lfrs] == "concrete":
+        return  {
+        1941: R_o_asd, # working stress design
+        1953: R_o_asd, # working stress design
+        1960: R_o_asd, # working stress design
+        1965: np.max([Ro, 1.3]),
+        1970: np.max([Ro, 1.3]),
+        1975: np.max([Ro, 1.3]),
+        1977: np.max([Ro, 1.3]),
+        1980: np.max([Ro, 1.3]),
+        1985: np.max([Ro, 1.3]),
+        1990: np.max([Ro, 1.3]),
+        1995: np.max([Ro, 1.3]),
+        2005: np.max([Ro, 1.3]),
+        2010: np.max([Ro, 1.3]),
+        2015: np.max([Ro, 1.3]),
+        2020: np.max([Ro, 1.3]),
+        2025: np.max([Ro, 1.3]),
+    }[code_year]
+    
+    elif LFRS_TO_MATERIAL[lfrs] == "wood":
+        return  {
+        1941: R_o_asd, # working stress design
+        1953: R_o_asd, 
+        1960: R_o_asd, 
+        1965: R_o_asd, 
+        1970: R_o_asd, 
+        1975: R_o_asd, 
+        1977: R_o_asd, 
+        1980: R_o_asd, 
+        1985: np.max([Ro, 1.3]),
+        1990: np.max([Ro, 1.3]),
+        1995: np.max([Ro, 1.3]),
+        2005: np.max([Ro, 1.3]),
+        2010: np.max([Ro, 1.3]),
+        2015: np.max([Ro, 1.3]),
+        2020: np.max([Ro, 1.3]),
+        2025: np.max([Ro, 1.3]),
+    }[code_year]
+
+    # masonry case
+    else:
+        return  {
+        1941: R_o_asd, # working stress design
+        1953: R_o_asd, 
+        1960: R_o_asd, 
+        1965: R_o_asd, 
+        1970: R_o_asd, 
+        1975: R_o_asd, 
+        1977: R_o_asd, 
+        1980: R_o_asd, 
+        1985: R_o_asd, 
+        1990: R_o_asd, 
+        1995: np.max([Ro, 1.3]),
+        2005: np.max([Ro, 1.3]),
+        2010: np.max([Ro, 1.3]),
+        2015: np.max([Ro, 1.3]),
+        2020: np.max([Ro, 1.3]),
+        2025: np.max([Ro, 1.3]),
+    }[code_year]
 
 # index is Sa_0p2
 FA_TABLE_2005 = pd.DataFrame({
@@ -3541,3 +3791,69 @@ ROOF_FLOOR_WEIGHT_SEG_2025 = {
     '76mm Steel Deck with 65mm Concrete Topping':   2.2,
     '76mm Steel Deck with 90mm Concrete Topping':   2.8,
 }
+
+# use the following to get a 2025 value
+
+# then using SEG-adjustment-per-era
+# mu_year = (Rd_year/Rd_2025) * mu_2025
+
+# generalized methodology for post-capping estimation
+# for each LFRS, identify dominant mechanism/component
+# go to Appendix of SEG and get all relevant components
+# average out the d, e, and c values
+
+# Table F.3, F.4
+# all wood shear wall components, h/b < 1.0
+wd_source = np.mean([4.0, 2.6, 3.1, 2.3, 2.0, 3.6, 3.6, 3.5, 4.6, 5.0, 4.4, 5.7, 5.7, 4.4, 3.8, 5.0])
+we_source = np.mean([5.0, 3.6, 4.0, 3.0, 2.5, 4.0, 4.0, 4.0, 5.0, 6.0, 5.0, 6.3, 6.3, 5.0, 4.0, 9.0])
+wc_source = np.mean([0.3, 0.2, 0.2, 0.2, 0.2, 0.3, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.855])
+# higher rises, use the h/b < 2.0 value and reference that against the above (70% ratio)
+
+# steel moment frame
+# use beams in flexure
+# assume class 1
+smfd_source = 10.0
+smfe_source = 12.0
+smfc_source = 0.6
+# mid and high-rises, use HAZUS ratio
+
+# steel braced frames
+# use ratios on buckling braces in tension
+# for residual capacity, use beams
+
+# these are typical n values for different shapes at average slenderness
+sbfd_source = np.mean([10.0, 9.0, 9.0, 9.0, 13.0])
+sbfe_source = 12.0
+sbfc_source = 0.6
+# mid and high-rises, use HAZUS ratio
+
+# CFS with shear wall
+# use h/b < 2
+# higher rises, apply the ratio on higher h/b ratios
+cfs1d_source = np.mean([3.3, 4.4, 3.7, 3.3, 3.9, 6.2, 3.0])
+cfs1e_source = np.mean([5.0, 7.5, 5.5, 5.0, 9.2, 14.8, 4.9])
+cfs1c_source = np.mean([0.3, 0.3, 0.3, 0.3, 0.6, 0.6, 0.4, 0.2])
+# higher rise
+# d & e: 0.75, c: 1.67
+
+# CFS with strap braces
+cfs2d_source = np.mean([7.9, 10.2, 3.3])
+cfs2e_source = np.mean([9.4, 11.1, 6.8])
+cfs2c_source = np.mean([0.8, 0.6, 0.9])
+
+# TODO: 
+# CSW, CMF, RM, URM
+
+SEG_BASE_POST_PEAK_PARAMS = pd.DataFrame({
+    "WLF-P9L": [wd_source, we_source, wc_source],
+    "WLFL": [wd_source, we_source, wc_source],
+    "WPBL": [wd_source, we_source, wc_source],
+    "WLF-P9M": [wd_source, we_source, wc_source],
+    "WLFM": [wd_source, we_source, wc_source],
+    "WPBM": [wd_source, we_source, wc_source],
+    "WLF-P9H": [0.7*wd_source, 0.7*we_source, 0.7*wc_source],
+    "WLFH": [0.7*wd_source, 0.7*we_source, 0.7*wc_source],
+    "WPBH": [0.7*wd_source, 0.7*we_source, 0.7*wc_source],
+},
+index=['d_peak', 'e_plateau', 'c_residual'], dtype=float)
+
