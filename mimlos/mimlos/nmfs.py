@@ -45,7 +45,7 @@ def calculate_elastic_displacement(V_j, h_j, GA):
 
     return V_j * units.kN * h_j * units.m / (GA * units.kN)
 
-def determine_sdof_stiffness(nst, T_eff, m_0, lfrs, is_sos=False):
+def determine_sdof_stiffness(nst, T_eff, m_0, is_sos=False):
     """
     Determine k_0, the first mode stiffness corresponding to the
     eigenproblem 

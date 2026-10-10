@@ -3611,6 +3611,71 @@ def get_historical_Ro(code_year, code_level, lfrs):
         2025: np.max([Ro, 1.3]),
     }[code_year]
 
+def estimate_SEG_ductility(lfrs, number_of_stories, Rd_2025, Rd_historical):
+    height_conditions = [
+        (number_of_stories < 4),
+        (number_of_stories < 7) & (number_of_stories >= 4),
+        (number_of_stories > 7),
+    ]
+
+    height_archetypes = ['L', 'M', 'H']
+    no_height_delin = ["WLF-P9", "WLF", "WPB", "SLF", "CFS2"]
+
+    height_suffix = np.select(height_conditions, height_archetypes, default="")
+    if lfrs not in no_height_delin:
+        lfrsh = lfrs + height_suffix
+    else:
+        lfrsh = lfrs 
+
+    base_ductility = SEG_BASE_POST_PEAK_PARAMS.loc['d_peak', lfrsh]
+    # base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['e_plateau', lfrsh]
+    # residual_ratio = SEG_BASE_POST_PEAK_PARAMS.loc['c_residual', lfrsh]
+
+    return np.maximum(base_ductility * Rd_historical / Rd_2025, 1.0)
+
+
+def estimate_SEG_postcap(lfrs, number_of_stories, Rd_2025, Rd_historical):
+    height_conditions = [
+        (number_of_stories < 4),
+        (number_of_stories < 7) & (number_of_stories >= 4),
+        (number_of_stories > 7),
+    ]
+
+    height_archetypes = ['L', 'M', 'H']
+    no_height_delin = ["WLF-P9", "WLF", "WPB", "SLF", "CFS2"]
+
+    height_suffix = np.select(height_conditions, height_archetypes, default="")
+    if lfrs not in no_height_delin:
+        lfrsh = lfrs + height_suffix
+    else:
+        lfrsh = lfrs 
+
+    # base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['d_peak', lfrsh]
+    base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['e_plateau', lfrsh]
+    # residual_ratio = SEG_BASE_POST_PEAK_PARAMS.loc['c_residual', lfrsh]
+
+    return np.maximum(base_postcap * Rd_historical / Rd_2025, 1.0)
+
+def estimate_SEG_residual(lfrs, number_of_stories):
+    height_conditions = [
+        (number_of_stories < 4),
+        (number_of_stories < 7) & (number_of_stories >= 4),
+        (number_of_stories > 7),
+    ]
+
+    height_archetypes = ['L', 'M', 'H']
+    no_height_delin = ["WLF-P9", "WLF", "WPB", "SLF", "CFS2"]
+
+    height_suffix = np.select(height_conditions, height_archetypes, default="")
+    if lfrs not in no_height_delin:
+        lfrsh = lfrs + height_suffix
+    else:
+        lfrsh = lfrs 
+
+    residual_ratio = SEG_BASE_POST_PEAK_PARAMS.loc['c_residual', lfrsh]
+
+    return residual_ratio
+
 # index is Sa_0p2
 FA_TABLE_2005 = pd.DataFrame({
     'A': [0.7, 0.7, 0.8, 0.8, 0.8],
@@ -3792,68 +3857,158 @@ ROOF_FLOOR_WEIGHT_SEG_2025 = {
     '76mm Steel Deck with 90mm Concrete Topping':   2.8,
 }
 
-# use the following to get a 2025 value
+# TODO: enhanced calibration
+def get_SEG_ductility():
+    # use the following to get a 2025 value
 
-# then using SEG-adjustment-per-era
-# mu_year = (Rd_year/Rd_2025) * mu_2025
+    # then using SEG-adjustment-per-era
+    # mu_year = (Rd_year/Rd_2025) * mu_2025
 
-# generalized methodology for post-capping estimation
-# for each LFRS, identify dominant mechanism/component
-# go to Appendix of SEG and get all relevant components
-# average out the d, e, and c values
+    # generalized methodology for post-capping estimation
+    # for each LFRS, identify dominant mechanism/component
+    # go to Appendix of SEG and get all relevant components
+    # average out the d, e, and c values
 
-# Table F.3, F.4
-# all wood shear wall components, h/b < 1.0
-wd_source = np.mean([4.0, 2.6, 3.1, 2.3, 2.0, 3.6, 3.6, 3.5, 4.6, 5.0, 4.4, 5.7, 5.7, 4.4, 3.8, 5.0])
-we_source = np.mean([5.0, 3.6, 4.0, 3.0, 2.5, 4.0, 4.0, 4.0, 5.0, 6.0, 5.0, 6.3, 6.3, 5.0, 4.0, 9.0])
-wc_source = np.mean([0.3, 0.2, 0.2, 0.2, 0.2, 0.3, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.855])
-# higher rises, use the h/b < 2.0 value and reference that against the above (70% ratio)
+    # Table F.3, F.4
+    # all wood shear wall components, h/b < 1.0
+    wd_source = np.mean([4.0, 2.6, 3.1, 2.3, 2.0, 3.6, 3.6, 3.5, 4.6, 5.0, 4.4, 5.7, 5.7, 4.4, 3.8, 5.0])
+    we_source = np.mean([5.0, 3.6, 4.0, 3.0, 2.5, 4.0, 4.0, 4.0, 5.0, 6.0, 5.0, 6.3, 6.3, 5.0, 4.0, 9.0])
+    wc_source = np.mean([0.3, 0.2, 0.2, 0.2, 0.2, 0.3, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.855])
 
-# steel moment frame
-# use beams in flexure
-# assume class 1
-smfd_source = 10.0
-smfe_source = 12.0
-smfc_source = 0.6
-# mid and high-rises, use HAZUS ratio
+    # steel moment frame
+    # use beams in flexure
+    # assume class 1
+    smfd_source = 10.0
+    smfe_source = 12.0
+    smfc_source = 0.6
+    # mid and high-rises, use HAZUS ratio
 
-# steel braced frames
-# use ratios on buckling braces in tension
-# for residual capacity, use beams
+    # steel braced frames
+    # use ratios on buckling braces in tension
+    # ratios act on axial tension, but would be similar for drifts
+    # for residual capacity, use beams
 
-# these are typical n values for different shapes at average slenderness
-sbfd_source = np.mean([10.0, 9.0, 9.0, 9.0, 13.0])
-sbfe_source = 12.0
-sbfc_source = 0.6
-# mid and high-rises, use HAZUS ratio
+    # these are typical n values for different shapes at average slenderness
+    sbfd_source = np.mean([10.0, 9.0, 9.0, 9.0, 13.0])
+    sbfe_source = 12.0
+    sbfc_source = 0.6
+    # mid and high-rises, use HAZUS ratio
 
-# CFS with shear wall
-# use h/b < 2
-# higher rises, apply the ratio on higher h/b ratios
-cfs1d_source = np.mean([3.3, 4.4, 3.7, 3.3, 3.9, 6.2, 3.0])
-cfs1e_source = np.mean([5.0, 7.5, 5.5, 5.0, 9.2, 14.8, 4.9])
-cfs1c_source = np.mean([0.3, 0.3, 0.3, 0.3, 0.6, 0.6, 0.4, 0.2])
-# higher rise
-# d & e: 0.75, c: 1.67
+    # CFS with shear wall
+    # use h/b < 2
+    # higher rises, apply the ratio on higher h/b ratios
+    cfs1d_source = np.mean([3.3, 4.4, 3.7, 3.3, 3.9, 6.2, 3.0])
+    cfs1e_source = np.mean([5.0, 7.5, 5.5, 5.0, 9.2, 14.8, 4.9])
+    cfs1c_source = np.mean([0.3, 0.3, 0.3, 0.3, 0.6, 0.6, 0.4, 0.2])
+    # higher rise
+    # d & e: 0.75, c: 1.67
 
-# CFS with strap braces
-cfs2d_source = np.mean([7.9, 10.2, 3.3])
-cfs2e_source = np.mean([9.4, 11.1, 6.8])
-cfs2c_source = np.mean([0.8, 0.6, 0.9])
+    # CFS with strap braces
+    cfs2d_source = np.mean([7.9, 10.2, 3.3])
+    cfs2e_source = np.mean([9.4, 11.1, 6.8])
+    cfs2c_source = np.mean([0.8, 0.6, 0.9])
 
-# TODO: 
-# CSW, CMF, RM, URM
+    # CMF estimate story drift capacity as beam chord rotation capacity
+    # Visnjic (2015) shows this is true up until ~12 stories
+    # at 20 stories it drops to about 0.6*beam chord rotation
 
-SEG_BASE_POST_PEAK_PARAMS = pd.DataFrame({
-    "WLF-P9L": [wd_source, we_source, wc_source],
-    "WLFL": [wd_source, we_source, wc_source],
-    "WPBL": [wd_source, we_source, wc_source],
-    "WLF-P9M": [wd_source, we_source, wc_source],
-    "WLFM": [wd_source, we_source, wc_source],
-    "WPBM": [wd_source, we_source, wc_source],
-    "WLF-P9H": [0.7*wd_source, 0.7*we_source, 0.7*wc_source],
-    "WLFH": [0.7*wd_source, 0.7*we_source, 0.7*wc_source],
-    "WPBH": [0.7*wd_source, 0.7*we_source, 0.7*wc_source],
-},
-index=['d_peak', 'e_plateau', 'c_residual'], dtype=float)
+    # for the actual parameter, can use SEG, but that requires dimensions
+    # in aggregate, we'll use NIST GCR 17-917-45, which reports the 
+    # ACI 369 (SEG) value as being 0.02 to 0.025 radians. We take the upper
+    # value as the ductile peak plastic rotation.
+    cmfd_source = 0.025/0.0075
+    cmfe_source = 0.05/0.0075
+    cmfc_source = 0.2
+    # normalize against a presumed yield of 0.0075
+    # low rises get 1.2 bump
+    # mid rises 1.0
+    # high rises have 0.6 penalty
+
+    # CSW flexure controlled: take as mid and high rises
+    # component: both walls and coupling beams, conforming
+    cswfd_source = np.mean([0.032, 0.026, 0.018, 0.014, 0.032, 0.026, 0.012, 0.011, 0.025, 0.020, 0.03])/0.0025
+    cswfe_source = np.mean([0.04, 0.032, 0.02, 0.014, 0.05, 0.04, 0.05])/0.0025
+    cswfc_source = np.mean([0.5, 0.1, 0.0, 0.0, 0.50, 0.50, 0.8])
+
+    # shear controlled walls
+    cswsd_source = np.mean([0.01, 0.0075])/0.0025
+    cswse_source = np.mean([0.02, 0.01])/0.0025
+    cswsc_source = np.mean([0.20, 0.0])
+
+    # URM: take as the wall, not spandrel, both rocking and sliding
+    # assume typical toe crushing drift is 0.5%
+    urmd_source = np.mean([0.005, 0.004])/0.0025
+    urme_source = np.mean([0.005, 0.004])/0.0025
+    urmc_source = 0.8 # practically small
+
+    # infill RM
+    # use infilled frame and masonry infill 
+    # includes ductile, both flexible and stiff panels
+    # assume aspect ratio of 1.0
+    # D point is taken as the onset of residual (1.6*peak)
+    iwd_source = np.mean([1.6*0.0037, 0.01])/0.0025
+    iwe_source = np.mean([0.01])/0.0025
+    iwc_source = 0.2
+
+    # RM, assume flexure controlled
+    # take upper bound
+    # assume fully grouted
+    rmd_source = 0.01/0.0025
+    rme_source = 0.04/0.0025
+    rmc_source = 0.5
+
+    # this represents the highest ductility available
+    # any reductions would be applied by the ductility level, tied to code era
+    return pd.DataFrame({
+        "WLF-P9": [wd_source, we_source, wc_source],
+        "WLF": [wd_source, we_source, wc_source],
+        "WPB": [wd_source, we_source, wc_source],
+        'SMFL' : [smfd_source, smfe_source, smfc_source],
+        'SMFM' : [0.66*smfd_source, 0.66*smfe_source, smfc_source],
+        'SMFH' : [0.5*smfd_source, 0.5*smfe_source, smfc_source],
+        'SBFL' : [sbfd_source, sbfe_source, sbfc_source],
+        'SBFM' : [0.66*sbfd_source, 0.66*sbfe_source, sbfc_source],
+        'SBFH' : [0.5*sbfd_source, 0.5*sbfe_source, sbfc_source],
+        'SLF' : [cfs2d_source, cfs2e_source, cfs2c_source],
+        'SCWL' : [cswfd_source, cswfe_source, cswfc_source], # use flexure ctrl shear wall
+        'SCWM' : [0.66*cswfd_source, 0.66*cswfe_source, cswfc_source], # use flexure ctrl shear wall
+        'SCWH' : [0.5*cswfd_source, 0.5*cswfe_source, cswfc_source], # use flexure ctrl shear wall
+        'SIWL' : [iwd_source, iwe_source, iwc_source],
+        'SIWM' : [0.66*iwd_source, 0.66*iwe_source, iwc_source],
+        'SIWH' : [0.5*iwd_source, 0.5*iwe_source, iwc_source],
+        'CMFL' : [1.2*cmfd_source, 1.2*cmfe_source, cmfc_source],
+        'CMFM' : [cmfd_source, cmfe_source, cmfc_source],
+        'CMFH' : [0.66*cmfd_source, 0.66*cmfe_source, cmfc_source],
+        'CSWL' : [cswsd_source, cswse_source, cswsc_source], # shear control
+        'CSWM' : [cswfd_source, cswfe_source, cswfc_source], # flexure control
+        'CSWH' : [cswfd_source, cswfe_source, cswfc_source], # flexure control
+        'CIWL' : [iwd_source, iwe_source, iwc_source],
+        'CIWM' : [0.66*iwd_source, 0.66*iwe_source, iwc_source],
+        'CIWH' : [0.5*iwd_source, 0.5*iwe_source, iwc_source],
+        'PCWL' : [cswsd_source, cswse_source, cswsc_source], # shear control, assume CSW
+        'PCWM' : [cswfd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
+        'PCWH' : [cswfd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
+        'PCF1L' : [cswsd_source, cswse_source, cswsc_source], # shear control, assume CSW
+        'PCF1M' : [cswfd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
+        'PCF1H' : [cswfd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
+        'PCF2L' : [1.2*cmfd_source, 1.2*cmfe_source, cmfc_source], # assume CMF
+        'PCF2M' : [cmfd_source, cmfe_source, cmfc_source],              # assume CMF
+        'PCF2H' : [0.66*cmfd_source, 0.66*cmfe_source, cmfc_source], # assume CMF
+        'RMLL'  : [rmd_source, rme_source, rmc_source],
+        'RMLM'  : [0.66*rmd_source, 0.66*rme_source, rmc_source],
+        'RMLH'  : [0.5*rmd_source, 0.5*rme_source, rmc_source],
+        'RMCL'  : [rmd_source, rme_source, rmc_source],
+        'RMCM'  : [0.66*rmd_source, 0.66*rme_source, rmc_source],
+        'RMCH'  : [0.5*rmd_source, 0.5*rme_source, rmc_source],
+        'URML'  : [urmd_source, urme_source, urmc_source],
+        'URMM'  : [0.66*urmd_source, 0.66*urme_source, urmc_source],
+        'URMH'  : [0.66*urmd_source, 0.66*urme_source, urmc_source],
+        'CFS1L' : [cfs1d_source, cfs1e_source, cfs1c_source],
+        'CFS1M' : [0.75*cfs1d_source, 0.75*cfs1e_source, cfs1c_source],
+        'CFS1H' : [0.75*cfs1d_source, 0.75*cfs1e_source, cfs1c_source],
+        'CFS2' : [cfs2d_source, cfs2e_source, cfs2c_source],
+    },
+    index=['d_peak', 'e_plateau', 'c_residual'], dtype=float)
+
+SEG_BASE_POST_PEAK_PARAMS = get_SEG_ductility()
 

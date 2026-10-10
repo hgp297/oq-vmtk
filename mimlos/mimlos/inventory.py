@@ -378,14 +378,13 @@ class Inventory:
         # yield base shear represents
         self.inventory_df["modal_k0"] = [
             (
-                nmfs.determine_sdof_stiffness(int(nst), T_eff[0], m_0, lfrs[0]),
-                nmfs.determine_sdof_stiffness(int(nst), T_eff[1], m_0, lfrs[1]),
+                nmfs.determine_sdof_stiffness(int(nst), T_eff[0], m_0),
+                nmfs.determine_sdof_stiffness(int(nst), T_eff[1], m_0),
             )
-            for nst, T_eff, m_0, lfrs in zip(
+            for nst, T_eff, m_0 in zip(
                 self.inventory_df["Floors Above Grade"],
                 self.inventory_df["T_secant"],
                 self.inventory_df["m0_redistributed"],
-                self.inventory_df["LFRS"],
             )
         ]
 
@@ -414,10 +413,15 @@ class Inventory:
             )]
 
         # calculate (k0) peak displacements for each direction
-        self.inventory_df['delta_pj_peak_drift_ratio'] = [tuple(mu * omega * delta_y for mu, omega, delta_y in zip(mu_, omega_, dy_)) 
-            for mu_, omega_, dy_ in zip(
-                self.inventory_df['hazus_mu_ductility'], 
-                self.inventory_df['hazus_Omega_p_peak_overstrength'],
+        self.inventory_df['delta_pj_peak_drift_ratio'] = [tuple(rd * delta_y for rd, delta_y in zip(rd_, dy_)) 
+            for rd_, dy_ in zip(
+                self.inventory_df['SEG_peak_to_yield_ductility'], 
+                self.inventory_df['delta_yj_yield_drift_ratio'])]
+
+        
+        self.inventory_df['delta_pcj_postcap_drift_ratio'] = [tuple(rd * delta_y for rd, delta_y in zip(rd_, dy_)) 
+            for rd_, dy_ in zip(
+                self.inventory_df['SEG_postcap_to_yield_ductility'], 
                 self.inventory_df['delta_yj_yield_drift_ratio'])]
 
         # # calculate (NMFS) yield from GA for each direction
@@ -469,13 +473,26 @@ class Inventory:
         # stack together
         self.inventory_df["story_forces_kN"] = [
             (
-                np.column_stack([Vyj[0]*np.sum(W_j), Vpj[0]*np.sum(W_j), 0.7*Vpj[0]*np.sum(W_j), 0.5*Vpj[0]*np.sum(W_j)]),
-                np.column_stack([Vyj[1]*np.sum(W_j), Vpj[1]*np.sum(W_j), 0.7*Vpj[1]*np.sum(W_j), 0.5*Vpj[1]*np.sum(W_j)]),
+                np.column_stack([Vyj[0]*np.sum(W_j), Vpj[0]*np.sum(W_j), c[0]*Vpj[0]*np.sum(W_j), c[0]*Vpj[0]*np.sum(W_j)]),
+                np.column_stack([Vyj[1]*np.sum(W_j), Vpj[1]*np.sum(W_j), c[1]*Vpj[1]*np.sum(W_j), c[1]*Vpj[1]*np.sum(W_j)]),
             )
-            for Vyj, Vpj, W_j in zip(
+            for Vyj, Vpj, W_j, c in zip(
                 self.inventory_df["Vyj_story_yield_shear"],
                 self.inventory_df["Vpj_story_peak_shear"],
                 self.inventory_df["W_nbcc_x_kN"],
+                self.inventory_df["SEG_residual_strength_ratio"],
+            )
+        ]
+
+        self.inventory_df["story_drift_ratio_capacity"] = [
+            (
+                np.column_stack([uyj[0], upj[0], upcj[0], 10*upj[0]]),
+                np.column_stack([uyj[1], upj[1], upcj[1], 10*upj[1]]),
+            )
+            for uyj, upj, upcj in zip(
+                self.inventory_df["delta_yj_yield_drift_ratio"],
+                self.inventory_df["delta_pj_peak_drift_ratio"],
+                self.inventory_df["delta_pcj_postcap_drift_ratio"],
             )
         ]
 
@@ -695,6 +712,19 @@ class Inventory:
         ]
 
         # map historical Rd Ro from SEG
+
+        self.inventory_df["Rd_2025"] = [
+            (
+                nbcc.R_D_TABLE(sfrs[0], ductility_level=nbcc.DUCTILITY_LOOKUP_TABLE.loc[lvl[0], sfrs[0]]),
+                nbcc.R_D_TABLE(sfrs[1], ductility_level=nbcc.DUCTILITY_LOOKUP_TABLE.loc[lvl[1], sfrs[1]]),
+            )
+            for lvl, sfrs
+            in zip(
+                self.inventory_df["code_level"], 
+                self.inventory_df["LFRS"])
+        ]
+
+        
         self.inventory_df["Rd_SEG"] = [
             (
                 nbcc.get_historical_Rd(code_year=yr, code_level=lvl[0], lfrs=sfrs[0], number_of_stories=ns),
@@ -728,6 +758,41 @@ class Inventory:
             for lf, ro in zip(
                 self.inventory_df['SEG_load_factor_adjustment'], 
                 self.inventory_df['Ro_SEG'])]
+        
+        self.inventory_df["SEG_peak_to_yield_ductility"] = [
+            (
+                nbcc.estimate_SEG_ductility(lfrs=sfrs[0], number_of_stories=nst, Rd_2025=Rd_cur[0], Rd_historical=Rd_hist[0]),
+                nbcc.estimate_SEG_ductility(lfrs=sfrs[1], number_of_stories=nst, Rd_2025=Rd_cur[1], Rd_historical=Rd_hist[1]),
+            )
+
+            for sfrs, nst, Rd_cur, Rd_hist in zip(
+                self.inventory_df['LFRS'], 
+                self.inventory_df['Floors Above Grade'],
+                self.inventory_df['Rd_2025'],
+                self.inventory_df['Rd_SEG'])]
+
+        self.inventory_df["SEG_postcap_to_yield_ductility"] = [
+            (
+                nbcc.estimate_SEG_postcap(lfrs=sfrs[0], number_of_stories=nst, Rd_2025=Rd_cur[0], Rd_historical=Rd_hist[0]),
+                nbcc.estimate_SEG_postcap(lfrs=sfrs[1], number_of_stories=nst, Rd_2025=Rd_cur[1], Rd_historical=Rd_hist[1]),
+            )
+
+            for sfrs, nst, Rd_cur, Rd_hist in zip(
+                self.inventory_df['LFRS'], 
+                self.inventory_df['Floors Above Grade'],
+                self.inventory_df['Rd_2025'],
+                self.inventory_df['Rd_SEG'])]
+
+        self.inventory_df["SEG_residual_strength_ratio"] = [
+                (
+                    nbcc.estimate_SEG_residual(lfrs=sfrs[0], number_of_stories=nst),
+                    nbcc.estimate_SEG_residual(lfrs=sfrs[1], number_of_stories=nst),
+                )
+    
+                for sfrs, nst in zip(
+                    self.inventory_df['LFRS'], 
+                    self.inventory_df['Floors Above Grade']
+                    )]
             
 
     def determine_seismic_hazard_params(self, year, site_class, location):
