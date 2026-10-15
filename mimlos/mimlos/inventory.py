@@ -404,6 +404,11 @@ class Inventory:
                 self.inventory_df['hazus_Omega_p_peak_overstrength'],
                 self.inventory_df['u_yj_yield_drift'])]
 
+        self.inventory_df['u_pcj_postcap_drift'] = [tuple(rd * delta_y for rd, delta_y in zip(rd_, dy_)) 
+            for rd_, dy_ in zip(
+                self.inventory_df['SEG_postcap_to_yield_ductility'], 
+                self.inventory_df['u_yj_yield_drift'])]
+
         
         self.inventory_df['delta_yj_yield_drift_ratio'] = [ (V_j[0]/k0[0]/h_j, V_j[1]/k0[1]/h_j)
             for V_j, k0, h_j in zip(
@@ -471,10 +476,22 @@ class Inventory:
 
 
         # stack together
+        self.inventory_df["story_normalized_shear"] = [
+            (
+                np.column_stack([Vyj[0], Vpj[0], c[0]*Vpj[0]]),
+                np.column_stack([Vyj[1], Vpj[1], c[1]*Vpj[1]]),
+            )
+            for Vyj, Vpj, c in zip(
+                self.inventory_df["Vyj_story_yield_shear"],
+                self.inventory_df["Vpj_story_peak_shear"],
+                self.inventory_df["SEG_residual_strength_ratio"],
+            )
+        ]
+
         self.inventory_df["story_forces_kN"] = [
             (
-                np.column_stack([Vyj[0]*np.sum(W_j), Vpj[0]*np.sum(W_j), c[0]*Vpj[0]*np.sum(W_j), c[0]*Vpj[0]*np.sum(W_j)]),
-                np.column_stack([Vyj[1]*np.sum(W_j), Vpj[1]*np.sum(W_j), c[1]*Vpj[1]*np.sum(W_j), c[1]*Vpj[1]*np.sum(W_j)]),
+                np.column_stack([Vyj[0]*np.sum(W_j), Vpj[0]*np.sum(W_j), c[0]*Vpj[0]*np.sum(W_j)]),
+                np.column_stack([Vyj[1]*np.sum(W_j), Vpj[1]*np.sum(W_j), c[1]*Vpj[1]*np.sum(W_j)]),
             )
             for Vyj, Vpj, W_j, c in zip(
                 self.inventory_df["Vyj_story_yield_shear"],
@@ -486,8 +503,8 @@ class Inventory:
 
         self.inventory_df["story_drift_ratio_capacity"] = [
             (
-                np.column_stack([uyj[0], upj[0], upcj[0], 10*upj[0]]),
-                np.column_stack([uyj[1], upj[1], upcj[1], 10*upj[1]]),
+                np.column_stack([uyj[0], upj[0], upcj[0]]),
+                np.column_stack([uyj[1], upj[1], upcj[1]]),
             )
             for uyj, upj, upcj in zip(
                 self.inventory_df["delta_yj_yield_drift_ratio"],
@@ -499,12 +516,13 @@ class Inventory:
         
         self.inventory_df["story_drift_capacity_m"] = [
             (
-                np.column_stack([uyj[0], upj[0], 2*upj[0], 10*upj[0]]),
-                np.column_stack([uyj[1], upj[1], 2*upj[1], 10*upj[1]]),
+                np.column_stack([uyj[0], upj[0], upcj[0]]),
+                np.column_stack([uyj[1], upj[1], upcj[1]]),
             )
-            for uyj, upj in zip(
+            for uyj, upj, upcj in zip(
                 self.inventory_df["u_yj_yield_drift"],
                 self.inventory_df["u_pj_peak_drift"],
+                self.inventory_df["u_pcj_postcap_drift"],
             )
         ]
 
