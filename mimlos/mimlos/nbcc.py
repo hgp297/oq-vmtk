@@ -3881,6 +3881,25 @@ def get_SEG_ductility():
     smfd_source = 10.0
     smfe_source = 12.0
     smfc_source = 0.6
+
+    # these should  probably go into bilinear model, or extend out much more
+    # sourced from FEMA P-695 studies (NIST TN 2084, NIST GCR 10-917-8, Fahnestock et al. (2020))
+    # for NIST TN 2084 study, treat 4-story as low-rise
+    # for Fahnestock, treat 8-story as mid-rise
+    # mix of ELF and RSA design
+    smfl_mu = np.array([3.76, 4.72, 5.3, 3.76, 4.02, 4.84, 5.4, 4.5])
+    smfm_mu = np.array([1.09, 2.50, 2.17, 3.98, 2.74, 2.35, 1.91, 2.34, 4.1, 3.1,
+                        np.mean([3.67, 4.04, 3.34, 3.60, 2.88, 3.14, 2.76, 2.96])])
+    smfh_mu = np.array([1.50, 2.90, 2.69, 3.55, 3.03, 2.32, 3.6, 3.7,
+                        np.mean([3.63, 3.64, 3.21, 3.46])])
+
+    # design-to-peak overstrength
+    smfl_omega = np.array([4.63, 3.69, 2.88, 5.46, 3.94, 2.21, 2.78, 2.22])
+    smfm_omega = np.array([4.45, 2.55, 3.44, 4.71, 3.27, 2.68, 2.27, 2.84, 2.61, 1.85,
+                           np.mean([2.54, 2.86, 2.00, 2.31, 1.27, 1.46, 1.24, 1.43])])
+    smfh_omega = np.array([4.67, 3.59, 3.27, 2.71, 2.48, 2.61, 1.92, 1.68,
+                           np.mean([1.91, 2.22, 1.33, 1.50])])
+
     # mid and high-rises, use HAZUS ratio
 
     # steel braced frames
