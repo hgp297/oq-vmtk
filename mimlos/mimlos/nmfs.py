@@ -10,6 +10,7 @@ from openquake.vmtk.units import units
 from scipy.optimize import least_squares
 from math import sin, sinh, cos, cosh
 import warnings
+from typing import Callable, NamedTuple
 
 def calculate_elastic_displacement(V_j, h_j, GA):
     '''
@@ -220,3 +221,74 @@ def flexural_shear_eigen(parameters, T_1, T_2):
 
     return [period_ratio_eqn, char_eq_1, char_eq_2]
 
+class CurveBuilder(NamedTuple):
+    shear: Callable   # (Vy, Vp, c)    -> (n_story, n_pts) normalized shear
+    drift: Callable   # (uy, up, uu, upc)  -> (n_story, n_pts) drift (ratio or m)
+
+
+# default curve is trilinear: yield, peak, postcap
+def _shear_default(Vy, Vp, c):
+    return np.column_stack([Vy, Vp, c * Vp])
+
+def _drift_default(uy, up, uu, upc, Vy=None, Vp=None):
+    return np.column_stack([uy, up, upc])
+
+# ductile, elastic until "effective" yield, then perfectly plastic
+# until halfway between ultimate and yield, then 0.8Vmax
+def _shear_ductile_steel(Vy, Vp, c):
+    return np.column_stack([Vp, Vp, 0.8*Vp, c * Vp])
+
+def _drift_ductile_steel(uy, up, uu, upc, Vy, Vp):
+    uy_eff = Vp/Vy*uy
+    mu_u = uu/uy
+    uu_eff = mu_u * uy_eff
+    mu_pc = upc/uy
+    upc_eff = mu_pc * uy_eff
+    return np.column_stack([uy_eff, 0.5*(uy_eff + uu_eff), uu_eff, upc_eff])
+
+def _shear_cfs(Vy, Vp, c):
+    return np.column_stack([Vy, Vp, 0.8*Vp, c * Vp])
+
+def _drift_cfs(uy, up, uu, upc, Vy=None, Vp=None):
+    return np.column_stack([uy, 0.5*(uy + uu), uu, upc])
+
+
+DEFAULT_BUILDER = CurveBuilder(_shear_default, _drift_default)
+
+CAPACITY_BUILDERS = {
+    "SMF": CurveBuilder(_shear_ductile_steel, _drift_ductile_steel),
+    "SBF": CurveBuilder(_shear_ductile_steel, _drift_ductile_steel),
+    "SLF": CurveBuilder(_shear_cfs, _drift_cfs),
+    "CFS1": CurveBuilder(_shear_cfs, _drift_cfs),
+    "CFS2": CurveBuilder(_shear_cfs, _drift_cfs),
+}
+
+
+def _get_builder(lfrs) -> CurveBuilder:
+    """
+    Look up builder by LFRS label
+    fall back to default if unsupported."""
+    key = str(lfrs).strip().upper() if lfrs is not None else None
+    return CAPACITY_BUILDERS.get(key, DEFAULT_BUILDER)
+
+
+def build_capacity_curves(lfrs, Vyj, Vpj, c, uyj, upj, uuj, upcj):
+    """
+    Build all four stacked capacity curves for one building.
+
+    lfrs : tuple (lfrs_dir0, lfrs_dir1)
+    Vyj, Vpj, c, uyj, upj, upcj, ... : tuples of per-direction arrays
+    W_j : story weights (kN), same for both directions
+    Returns dict of 4 tuples, each (dir0_array, dir1_array).
+    """
+    out = {"story_normalized_shear": [], "story_forces_kN": [],
+           "story_drift_ratio_capacity": [], "story_drift_capacity_m": []}
+
+    for d in range(2):
+        b = _get_builder(lfrs[d])
+        shear = b.shear(Vyj[d], Vpj[d], c[d])
+        out["story_normalized_shear"].append(shear)
+        out["story_drift_ratio_capacity"].append(b.drift(uyj[d], upj[d], uuj[d], upcj[d],
+                                                         Vyj[d], Vpj[d]))
+
+    return {k: tuple(v) for k, v in out.items()}

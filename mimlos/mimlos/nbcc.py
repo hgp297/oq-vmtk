@@ -119,7 +119,7 @@ def determine_period(row):
     if np.isnan(bldg_height):
         h_n = 3.5 * units.m * number_of_stories
     else:
-        h_n = bldg_height * units.m
+        h_n = bldg_height
         h_ix = h_n / number_of_stories
 
     def calc_periods(lfrs, h_n):
@@ -2855,6 +2855,10 @@ def determine_effective_period(lfrs, T_1, h_n, A_bldg, calibrate_to_yield=False)
     Returns
     --------------------
     T_eff: float
+        A better estimator of the fundamental period, which characterizes
+        INITIAL behavior, but with less conservative equations
+
+    T_secant: float
         Effective period in an elastic behavior from (0, 0) to (Vy, dy), where
         Vy are yield strength from NBC base shear * overstrength, and dy are 
         typical FEMA yield drifts.
@@ -2869,8 +2873,13 @@ def determine_effective_period(lfrs, T_1, h_n, A_bldg, calibrate_to_yield=False)
     if lfrs in ['SCW', 'SIW', 'CMF', 'CSW', 'CIW', 'PCW', 'PCF1', 'PCF2', 'RML', 'RMC', 'URM']: 
         T_eff = T_1
         T_secant = T_1*(1/0.3)**0.5
+    # smf and sbf lengthening evidenced in NIST GCR studies
     elif lfrs in ['SMF']:
-        multiplier = 2.0 * T_1
+        multiplier = 2.0
+        T_eff = multiplier * T_1
+        T_secant = multiplier * T_1
+    elif lfrs in ['SBF', 'SLF', 'CFS2']:
+        multiplier = 1.70
         T_eff = multiplier * T_1
         T_secant = multiplier * T_1
     # from Hafeez, Doudak, McClure (2018) for Canada. Also available is 
@@ -3358,6 +3367,8 @@ def adjusted_earthquake_load_factor(lfrs, code_year):
     This also accounts for the load factors originally applied in the load 
     combinations.
 
+    This load factor is already accounted for within 'Vdj_story_design_shear'
+
     Pre 1965: 
         working stress design, which has no load factor, but a rough 1.50 to 
         account for the ASD to LS conversion
@@ -3611,7 +3622,38 @@ def get_historical_Ro(code_year, code_level, lfrs):
         2025: np.max([Ro, 1.3]),
     }[code_year]
 
+def estimate_SEG_peak_to_yield_overstrength(lfrs, number_of_stories, Ro):
+    '''
+    Use FEMA P-695 (peak-to-design) Omega and SEG's (yield-to-design) overstrength
+    to back-calculate the yield-to-peak overstrength. This is meant to replace
+    Hazus Omega_p value.
+    '''
+    height_conditions = [
+        (number_of_stories < 4),
+        (number_of_stories < 7) & (number_of_stories >= 4),
+        (number_of_stories > 7),
+    ]
+
+    height_archetypes = ['L', 'M', 'H']
+    no_height_delin = ["WLF-P9", "WLF", "WPB", "SLF", "CFS2"]
+
+    height_suffix = np.select(height_conditions, height_archetypes, default="")
+    if lfrs not in no_height_delin:
+        lfrsh = lfrs + height_suffix
+    else:
+        lfrsh = lfrs 
+
+    p695_peak_to_design_Omega = P695_BASE_OVERSTRENGTH_PARAMS[lfrsh]
+
+    return np.maximum(p695_peak_to_design_Omega/Ro, 1.0)
+
 def estimate_SEG_ductility(lfrs, number_of_stories, Rd_2025, Rd_historical):
+    '''
+    Use a best-guess estimate of ductility (see SEG_BASE_POST_PEAK_PARAMS), 
+    adjusted by SEG's correction for past code years to characterize the 
+    ratio of ultimate to yield drifts.
+
+    '''
     height_conditions = [
         (number_of_stories < 4),
         (number_of_stories < 7) & (number_of_stories >= 4),
@@ -3628,13 +3670,17 @@ def estimate_SEG_ductility(lfrs, number_of_stories, Rd_2025, Rd_historical):
         lfrsh = lfrs 
 
     base_ductility = SEG_BASE_POST_PEAK_PARAMS.loc['d_peak', lfrsh]
-    # base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['e_plateau', lfrsh]
-    # residual_ratio = SEG_BASE_POST_PEAK_PARAMS.loc['c_residual', lfrsh]
 
     return np.maximum(base_ductility * Rd_historical / Rd_2025, 1.0)
 
 
 def estimate_SEG_postcap(lfrs, number_of_stories, Rd_2025, Rd_historical):
+    '''
+    Use a best-guess estimate of post-cap (see SEG_BASE_POST_PEAK_PARAMS), 
+    adjusted by SEG's correction for past code years to characterize the 
+    ratio of residual-regime to yield drifts.
+
+    '''
     height_conditions = [
         (number_of_stories < 4),
         (number_of_stories < 7) & (number_of_stories >= 4),
@@ -3650,13 +3696,15 @@ def estimate_SEG_postcap(lfrs, number_of_stories, Rd_2025, Rd_historical):
     else:
         lfrsh = lfrs 
 
-    # base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['d_peak', lfrsh]
     base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['e_plateau', lfrsh]
-    # residual_ratio = SEG_BASE_POST_PEAK_PARAMS.loc['c_residual', lfrsh]
 
     return np.maximum(base_postcap * Rd_historical / Rd_2025, 1.0)
 
 def estimate_SEG_residual(lfrs, number_of_stories):
+    '''
+    Use a best-guess estimate of residual (see SEG_BASE_POST_PEAK_PARAMS).
+
+    '''
     height_conditions = [
         (number_of_stories < 4),
         (number_of_stories < 7) & (number_of_stories >= 4),
@@ -3859,15 +3907,24 @@ ROOF_FLOOR_WEIGHT_SEG_2025 = {
 
 # TODO: enhanced calibration
 def get_SEG_ductility():
-    # use the following to get a 2025 value
+    '''
+    use the following to get a 2025 value
+    
+    then using SEG-adjustment-per-era
+    mu_year = (Rd_year/Rd_2025) * mu_2025
 
-    # then using SEG-adjustment-per-era
-    # mu_year = (Rd_year/Rd_2025) * mu_2025
+    default method is to use literature review to identify
+    fema p-695-like study and reconstruct capacity curves
+    using Omega (design-to-peak) and mu (yield-to-80%Vmax displacement)
 
-    # generalized methodology for post-capping estimation
-    # for each LFRS, identify dominant mechanism/component
-    # go to Appendix of SEG and get all relevant components
-    # average out the d, e, and c values
+    below is estimation for component-based ductility estimation
+
+    generalized methodology for post-capping estimation
+    for each LFRS, identify dominant mechanism/component
+    go to Appendix of SEG and get all relevant components
+    average out the d, e, and c values
+    '''
+    
 
     # Table F.3, F.4
     # all wood shear wall components, h/b < 1.0
@@ -3875,57 +3932,97 @@ def get_SEG_ductility():
     we_source = np.mean([5.0, 3.6, 4.0, 3.0, 2.5, 4.0, 4.0, 4.0, 5.0, 6.0, 5.0, 6.3, 6.3, 5.0, 4.0, 9.0])
     wc_source = np.mean([0.3, 0.2, 0.2, 0.2, 0.2, 0.3, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.855])
 
-    # steel moment frame
-    # use beams in flexure
-    # assume class 1
-    smfd_source = 10.0
-    smfe_source = 12.0
-    smfc_source = 0.6
+    ########## steel moment frame
 
     # these should  probably go into bilinear model, or extend out much more
-    # sourced from FEMA P-695 studies (NIST TN 2084, NIST GCR 10-917-8, Fahnestock et al. (2020))
+    # sourced from FEMA P-695 studies 
+    # (NIST TN 2084, NIST GCR 10-917-8, Fahnestock et al. (2020), Zareian et al. (2010), Elkady & Lignos (2014))
     # for NIST TN 2084 study, treat 4-story as low-rise
     # for Fahnestock, treat 8-story as mid-rise
     # mix of ELF and RSA design
-    smfl_mu = np.array([3.76, 4.72, 5.3, 3.76, 4.02, 4.84, 5.4, 4.5])
+    smfl_mu = np.array([3.76, 4.72, 5.3, 3.76, 4.02, 4.84, 5.4, 4.5,
+                        np.mean([3.86, 5.01, 2.58, 2.18, 3.86, 4.34, 2.37, 2.94])])
     smfm_mu = np.array([1.09, 2.50, 2.17, 3.98, 2.74, 2.35, 1.91, 2.34, 4.1, 3.1,
+                        np.mean([4.60, 4.57, 4.56, 4.91]),
+                        np.mean([5.59, 3.96, 4.98, 2.77]),
                         np.mean([3.67, 4.04, 3.34, 3.60, 2.88, 3.14, 2.76, 2.96])])
     smfh_mu = np.array([1.50, 2.90, 2.69, 3.55, 3.03, 2.32, 3.6, 3.7,
+                        np.mean([1.63, 1.50, 2.83, 2.40, 2.05, 3.21, 2.40]),
+                        np.mean([3.30, 2.91, 3.41, 3.62, 2.70, 2.38, 2.93, 3.36, 2.61, 2.21, 2.62, 2.81]),
                         np.mean([3.63, 3.64, 3.21, 3.46])])
 
-    # design-to-peak overstrength
-    smfl_omega = np.array([4.63, 3.69, 2.88, 5.46, 3.94, 2.21, 2.78, 2.22])
-    smfm_omega = np.array([4.45, 2.55, 3.44, 4.71, 3.27, 2.68, 2.27, 2.84, 2.61, 1.85,
-                           np.mean([2.54, 2.86, 2.00, 2.31, 1.27, 1.46, 1.24, 1.43])])
-    smfh_omega = np.array([4.67, 3.59, 3.27, 2.71, 2.48, 2.61, 1.92, 1.68,
-                           np.mean([1.91, 2.22, 1.33, 1.50])])
+    smfdl_source = np.mean(smfl_mu)
+    smfdm_source = np.mean(smfm_mu)
+    smfdh_source = np.mean(smfh_mu)
+    
+    ### post-cap behavior, source from components
+    # use beams in flexure
+    # assume class 1
 
+    # smfd_source = 10.0
+    smfe_source = 12.0
+    smfc_source = 0.6
     # mid and high-rises, use HAZUS ratio
 
-    # steel braced frames
+    ########### steel braced frames
+    # (excluding brbfs)
+    # sourced from FEMA P-695 studies 
+    # ( NIST GCR 10-917-8, Wichman et al. (2021), Chen & Mahin (2010) <- actually sourced into GCR)
+
+    # sbfd_source = np.mean([10.0, 9.0, 9.0, 9.0, 13.0])
+    sbfl_mu = np.array([4.3, 6.1, 5.8, 3.0])
+    sbfm_mu = np.array([2.4, 3.9])
+    sbfh_mu = np.array([3.2, 1.8, 1.4, 1.2])
+
+    sbfdl_source = np.mean(sbfl_mu)
+    sbfdm_source = np.mean(sbfm_mu)
+    sbfdh_source = np.mean(sbfh_mu)
+
+    ### post-cap behavior, source from components
     # use ratios on buckling braces in tension
     # ratios act on axial tension, but would be similar for drifts
     # for residual capacity, use beams
-
     # these are typical n values for different shapes at average slenderness
-    sbfd_source = np.mean([10.0, 9.0, 9.0, 9.0, 13.0])
     sbfe_source = 12.0
     sbfc_source = 0.6
     # mid and high-rises, use HAZUS ratio
 
+    ########### cold formed steel and steel light frames
+    # for steel light frame, default to cfs with shear wall
+    # this system is not expected to be used often
+
+    # P-695 studies from Pehlivan et al. (2023), Shakeel et al. (2019)
+    # should validate with Shamim & Rogers (2015), which is Canada specific (but steel sheathed)
+    # 2-3 stories, multiple occupancies, R between 4 and 6.5
+    cfs1_mu = np.array(np.mean([3.5, 3.9, 3.4, 3.9, 3.5, 3.7, 3.5, 3.5,
+                        3.6, 3.7, 3.8, 3.6, 3.5, 3.6, 3.2, 3.9, 
+                        3.6, 3.7, 3.1, 3.6, 3.1, 3.3, 3.4, 3.2, 
+                        3.0, 3.1, 3.1, 3.1]),
+                        np.mean([6.9, 6.3, 4.8, 1.9, 7.0, 4.0, 4.6, 
+                                 3.9, 2.7, 4.5, 3.3, 4.6, 3.0, 4.1]))
+    
+
     # CFS with shear wall
     # use h/b < 2
     # higher rises, apply the ratio on higher h/b ratios
-    cfs1d_source = np.mean([3.3, 4.4, 3.7, 3.3, 3.9, 6.2, 3.0])
+    cfs1d_source = np.mean(cfs1_mu)
+    # cfs1d_source = np.mean([3.3, 4.4, 3.7, 3.3, 3.9, 6.2, 3.0])
     cfs1e_source = np.mean([5.0, 7.5, 5.5, 5.0, 9.2, 14.8, 4.9])
     cfs1c_source = np.mean([0.3, 0.3, 0.3, 0.3, 0.6, 0.6, 0.4, 0.2])
     # higher rise
     # d & e: 0.75, c: 1.67
 
+
     # CFS with strap braces
-    cfs2d_source = np.mean([7.9, 10.2, 3.3])
+    # P-695 study from Fiorino et al. (2017)
+    cfs2_mu = np.array([10.7, 9.50, 4.80, 31.2, 11.8, 12.6, 6.70, 
+                        6.00, 28.6, 13.5, 6.60, 7.20, 28.6, 6.90])
+    cfs2d_source = np.mean(cfs2_mu)
+    # cfs2d_source = np.mean([7.9, 10.2, 3.3])
     cfs2e_source = np.mean([9.4, 11.1, 6.8])
     cfs2c_source = np.mean([0.8, 0.6, 0.9])
+
+    ########### concrete moment frames
 
     # CMF estimate story drift capacity as beam chord rotation capacity
     # Visnjic (2015) shows this is true up until ~12 stories
@@ -3982,12 +4079,12 @@ def get_SEG_ductility():
         "WLF-P9": [wd_source, we_source, wc_source],
         "WLF": [wd_source, we_source, wc_source],
         "WPB": [wd_source, we_source, wc_source],
-        'SMFL' : [smfd_source, smfe_source, smfc_source],
-        'SMFM' : [0.66*smfd_source, 0.66*smfe_source, smfc_source],
-        'SMFH' : [0.5*smfd_source, 0.5*smfe_source, smfc_source],
-        'SBFL' : [sbfd_source, sbfe_source, sbfc_source],
-        'SBFM' : [0.66*sbfd_source, 0.66*sbfe_source, sbfc_source],
-        'SBFH' : [0.5*sbfd_source, 0.5*sbfe_source, sbfc_source],
+        'SMFL' : [smfdl_source, smfe_source, smfc_source],
+        'SMFM' : [smfdm_source, 0.66*smfe_source, smfc_source],
+        'SMFH' : [smfdh_source, 0.5*smfe_source, smfc_source],
+        'SBFL' : [sbfdl_source, sbfe_source, sbfc_source],
+        'SBFM' : [sbfdm_source, 0.66*sbfe_source, sbfc_source],
+        'SBFH' : [sbfdh_source, 0.5*sbfe_source, sbfc_source],
         'SLF' : [cfs2d_source, cfs2e_source, cfs2c_source],
         'SCWL' : [cswfd_source, cswfe_source, cswfc_source], # use flexure ctrl shear wall
         'SCWM' : [0.66*cswfd_source, 0.66*cswfe_source, cswfc_source], # use flexure ctrl shear wall
@@ -4031,3 +4128,84 @@ def get_SEG_ductility():
 
 SEG_BASE_POST_PEAK_PARAMS = get_SEG_ductility()
 
+
+def get_p695_overstrength():
+    
+    # design-to-peak overstrength
+    smfl_omega = np.array([4.63, 3.69, 2.88, 5.46, 3.94, 2.21, 2.78, 2.22,
+                           np.mean([4.64, 3.68, 2.55, 3.45, 5.48, 3.93, 2.84, 3.58])])
+    smfm_omega = np.array([4.45, 2.55, 3.44, 4.71, 3.27, 2.68, 2.27, 2.84, 2.61, 1.85,
+                           np.mean([2.87, 4.71, 2.19, 3.25]),
+                           np.mean([2.54, 2.86, 2.00, 2.31, 1.27, 1.46, 1.24, 1.43])],
+                           np.mean([2.00, 2.29, 2.41, 2.57]))
+    smfh_omega = np.array([4.67, 3.59, 3.27, 2.71, 2.48, 2.61, 1.92, 1.68,
+                           np.mean([4.53, 4.67, 3.26, 2.65, 2.23, 2.69, 2.44, 2.57]),
+                           np.mean([1.91, 2.22, 1.33, 1.50]),
+                           np.mean([2.63, 3.31, 3.32, 3.52, 2.09, 2.52, 2.52, 2.77, 1.89, 2.27, 2.34, 2.39])])
+
+    sbfl_omega = np.array([1.44, 1.41, 1.38, 2.41])
+    sbfm_omega = np.array([1.28, 1.86])
+    sbfh_omega = np.array([1.60, 2.11, 2.18, 1.56])
+
+    
+    cfs1_omega = np.array(np.mean([2.3, 3.1, 3.8, 3.0, 3.3, 3.7, 2.2, 3.2,
+                           3.4, 3.1, 3.0, 3.5, 2.1, 3.2, 3.2, 3.0,
+                           3.1, 3.2, 2.2, 3.4, 3.7, 2.1, 3.1 ,3.8, 
+                           3.2, 3.8, 3.0, 3.3]),
+                           np.mean([1.06, 1.17, 1.27, 1.16, 1.33, 1.23, 1.32, 
+                                    1.17, 1.16, 1.31, 1.21, 1.10, 1.17, 1.34]))
+
+    cfs2_omega = np.array([1.42, 1.54, 1.55, 1.80, 1.54, 1.33, 1.49, 1.67, 2.13, 1.37, 1.46, 1.52, 1.62])
+
+
+    return {
+        "WLF-P9":   3.00,
+        "WLF":      2.50,
+        "WPB":      2.50,
+        "SMFL":     np.mean(smfl_omega),
+        "SMFM":     np.mean(smfm_omega),
+        "SMFH":     np.mean(smfh_omega),
+        "SBFL":     np.mean(sbfl_omega),
+        "SBFM":     np.mean(sbfm_omega),
+        "SBFH":     np.mean(sbfh_omega),
+        "SLF":      2.00,
+        "SCWL":     2.25,
+        "SCWM":     2.25,
+        "SCWH":     2.25,
+        "SIWL":     2.00,
+        "SIWM":     2.00,
+        "SIWH":     2.00,
+        "CMFL":     3.00,
+        "CMFM":     3.00,
+        "CMFH":     3.00,
+        "CSWL":     2.50,
+        "CSWM":     2.50,
+        "CSWH":     2.50,
+        "CIWL":     2.25,
+        "CIWM":     2.25,
+        "CIWH":     2.25,
+        "PCWL":     2.00,
+        "PCWM":     2.00,
+        "PCWH":     2.00,
+        "PCF1L":    2.00,
+        "PCF1M":    2.00,
+        "PCF1H":    2.00,
+        "PCF2L":    2.00,
+        "PCF2M":    2.00,
+        "PCF2H":    2.00,
+        "RMLL":     2.00,
+        "RMLM":     2.00,
+        "RMLH":     2.00,
+        "RMCL":     2.00,
+        "RMCM":     2.00,
+        "RMCH":     2.00,
+        "URML":     2.00,
+        "URMM":     2.00,
+        "URMH":     2.00,
+        "CFS1L":    np.mean(cfs1_omega),
+        "CFS1M":    np.mean(cfs1_omega),
+        "CFS1H":    np.mean(cfs1_omega),
+        "CFS2":     2.00,
+        }
+
+P695_BASE_OVERSTRENGTH_PARAMS = get_p695_overstrength()
