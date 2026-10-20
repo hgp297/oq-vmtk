@@ -1663,34 +1663,8 @@ def vs_nbcc_2005(row, seismic_hazard_params):
     # i.e. precast = nominal ductility RC frame
     built_after_1995 = code_year >= 1995
 
-    # ductility
-    # ductile coupled walls is assumed to be classified as "CSW", which is ductile shear wall as it is the more conservative one
-    # it is assumed that RM construction 1995 and after are "nominal ductility"
-    ductility_lookup = {
-        "WLF-P9": 'conventional', # assuming CAN/CSA-O86.1-M compliant, conventional construction
-        "WLF": 'conventional', # assuming CAN/CSA-O86.1-M compliant
-        "WPB": 'moderate', # assuming CAN/CSA-O86.1-M compliant, moment-frame like
-        "SMF": 'ductile', # ductile mrf
-        "SBF": 'ductile', # ductile braced frame
-        "SLF": 'ductile', # ductile mrf
-        "SCW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "SIW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "CMF": 'ductile', # ductile mrf
-        "CSW": 'ductile', # ductile shear wall
-        "CIW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "PCW": 'moderate', # moderate ductility
-        "PCF1": 'moderate', # assuming wall controls, designed to moderate ductility
-        "PCF2": 'moderate', # nominal ductility frame
-        "RML": 'moderate' if built_after_1995 else 'conventional', # "nominal ductility" RM depending on construction year
-        "RMC": 'moderate' if built_after_1995 else 'conventional', # "nominal ductility" RM depending on construction year
-        "URM": 'conventional',
-        "CFS1":'conventional', # non-ductile steel frame assumed, other category
-        "CFS2": 'conventional',
-    }
-
-
     def flowchart_2005(lfrs):
-        ductility_level = ductility_lookup[lfrs]
+        ductility_level = DUCTILITY_LOOKUP_TABLE.loc['high-code', lfrs]
         R_d = R_D_TABLE(lfrs, ductility_level=ductility_level)
         R_o = R_O_TABLE(lfrs, ductility_level=ductility_level)
 
@@ -1861,35 +1835,11 @@ def vs_nbcc_2010(row, seismic_hazard_params):
     # i.e. precast = nominal ductility RC frame
     built_after_1995 = code_year >= 1995
 
-    # ductility
-    # 2010 added cold-formed steel category (and BRBs)
-    ductility_lookup = {
-            "WLF-P9": 'conventional', # assuming CAN/CSA-O86.1-M compliant, conventional construction
-            "WLF": 'conventional', # assuming CAN/CSA-O86.1-M compliant
-            "WPB": 'moderate', # assuming CAN/CSA-O86.1-M compliant, moment-frame like
-            "SMF": 'ductile', # ductile mrf
-            "SBF": 'ductile', # ductile braced frame
-            "SLF": 'ductile', # ductile mrf
-            "SCW": 'moderate', # assuming wall controls, designed to moderate ductility
-            "SIW": 'moderate', # assuming wall controls, designed to moderate ductility
-            "CMF": 'ductile', # ductile mrf
-            "CSW": 'ductile', # ductile shear wall
-            "CIW": 'moderate', # assuming wall controls, designed to moderate ductility
-            "PCW": 'moderate', # moderate ductility
-            "PCF1": 'moderate', # assuming wall controls, designed to moderate ductility
-            "PCF2": 'moderate', # nominal ductility frame
-            "RML": 'moderate' if built_after_1995 else 'conventional', # "nominal ductility" RM depending on construction year
-            "RMC": 'moderate' if built_after_1995 else 'conventional', # "nominal ductility" RM depending on construction year
-            "URM": 'conventional',
-            "CFS1": 'ductile', # non-ductile steel frame assumed, other category
-            "CFS2": 'ductile',
-        }
-
     # ductile coupled walls is assumed to be classified as "CSW", which is ductile shear wall as it is the more conservative one
     # it is assumed that RM construction 1995 and after are "nominal ductility"
 
     def flowchart_2010(lfrs):
-        ductility_level = ductility_lookup[lfrs]
+        ductility_level = DUCTILITY_LOOKUP_TABLE.loc['high-code', lfrs]
         R_d = R_D_TABLE(lfrs, ductility_level=ductility_level)
         R_o = R_O_TABLE(lfrs, ductility_level=ductility_level)
 
@@ -2085,36 +2035,10 @@ def vs_nbcc_2015(row, seismic_hazard_params):
 
     # allowing RM to be upgraded to highest ductility if they are built to this code-year
     built_after_2015 = code_year >= 2015
-
-    # ductility
-    # 2010 added cold-formed steel category (and BRBs)
-    ductility_lookup = {
-        "WLF-P9": 'conventional', # assuming CAN/CSA-O86.1-M compliant, conventional construction
-        "WLF": 'conventional', # assuming CAN/CSA-O86.1-M compliant
-        "WPB": 'moderate', # assuming CAN/CSA-O86.1-M compliant, moment-frame like
-        "SMF": 'ductile', # ductile mrf
-        "SBF": 'ductile', # ductile braced frame
-        "SLF": 'ductile', # ductile mrf
-        "SCW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "SIW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "CMF": 'ductile', # ductile mrf
-        "CSW": 'ductile', # ductile shear wall
-        "CIW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "PCW": 'moderate', # moderate ductility
-        "PCF1": 'moderate', # assuming wall controls, designed to moderate ductility
-        "PCF2": 'moderate', # nominal ductility frame
-        "RML": 'ductile' if built_after_2015 else 'moderate', # "nominal ductility" RM depending on construction year
-        "RMC": 'ductile' if built_after_2015 else 'moderate', # "nominal ductility" RM depending on construction year
-        "URM": 'conventional',
-        "CFS1": 'ductile', # non-ductile steel frame assumed, other category
-        "CFS2": 'ductile',
-    }
-
-    # ductile coupled walls is assumed to be classified as "CSW", which is ductile shear wall as it is the more conservative one
-    # it is assumed that RM construction 2015 and after are "ductile"
+    
 
     def flowchart_2015(lfrs):
-        ductility_level = ductility_lookup[lfrs]
+        ductility_level = DUCTILITY_LOOKUP_TABLE.loc['high-code', lfrs]
         R_d = R_D_TABLE(lfrs, ductility_level=ductility_level)
         R_o = R_O_TABLE(lfrs, ductility_level=ductility_level)
 
@@ -2323,35 +2247,11 @@ def vs_nbcc_2020(row, seismic_hazard_params):
     # allowing RM to be upgraded to highest ductility if they are built to this code-year
     built_after_2015 = code_year >= 2015
 
-    # ductility
-    # 2010 added cold-formed steel category (and BRBs)
-    ductility_lookup = {
-        "WLF-P9": 'conventional', # assuming CAN/CSA-O86.1-M compliant, conventional construction
-        "WLF": 'conventional', # assuming CAN/CSA-O86.1-M compliant
-        "WPB": 'moderate', # assuming CAN/CSA-O86.1-M compliant, moment-frame like
-        "SMF": 'ductile', # ductile mrf
-        "SBF": 'ductile', # ductile braced frame
-        "SLF": 'ductile', # ductile mrf
-        "SCW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "SIW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "CMF": 'ductile', # ductile mrf
-        "CSW": 'ductile', # ductile shear wall
-        "CIW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "PCW": 'moderate', # moderate ductility
-        "PCF1": 'moderate', # assuming wall controls, designed to moderate ductility
-        "PCF2": 'moderate', # nominal ductility frame
-        "RML": 'ductile' if built_after_2015 else 'moderate', # "nominal ductility" RM depending on construction year
-        "RMC": 'ductile' if built_after_2015 else 'moderate', # "nominal ductility" RM depending on construction year
-        "URM": 'conventional',
-        "CFS1": 'ductile', # non-ductile steel frame assumed, other category
-        "CFS2": 'ductile',
-    }
-
     # ductile coupled walls is assumed to be classified as "CSW", which is ductile shear wall as it is the more conservative one
     # it is assumed that RM construction 2015 and after are "ductile"
 
     def flowchart_2020(lfrs):
-        ductility_level = ductility_lookup[lfrs]
+        ductility_level = DUCTILITY_LOOKUP_TABLE.loc['high-code', lfrs]
         R_d = R_D_TABLE(lfrs, ductility_level=ductility_level)
         R_o = R_O_TABLE(lfrs, ductility_level=ductility_level)
 
@@ -2560,35 +2460,8 @@ def vs_nbcc_2025(row, seismic_hazard_params, historical_mode=False):
     # allowing RM to be upgraded to highest ductility if they are built to this code-year
     built_after_2015 = code_year >= 2015
 
-    # ductility
-    # 2010 added cold-formed steel category (and BRBs)
-    ductility_lookup = {
-        "WLF-P9": 'conventional', # assuming CAN/CSA-O86.1-M compliant, conventional construction
-        "WLF": 'conventional', # assuming CAN/CSA-O86.1-M compliant
-        "WPB": 'moderate', # assuming CAN/CSA-O86.1-M compliant, moment-frame like
-        "SMF": 'ductile', # ductile mrf
-        "SBF": 'ductile', # ductile braced frame
-        "SLF": 'ductile', # ductile mrf
-        "SCW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "SIW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "CMF": 'ductile', # ductile mrf
-        "CSW": 'ductile', # ductile shear wall
-        "CIW": 'moderate', # assuming wall controls, designed to moderate ductility
-        "PCW": 'moderate', # moderate ductility
-        "PCF1": 'moderate', # assuming wall controls, designed to moderate ductility
-        "PCF2": 'moderate', # nominal ductility frame
-        "RML": 'ductile' if built_after_2015 else 'moderate', # "nominal ductility" RM depending on construction year
-        "RMC": 'ductile' if built_after_2015 else 'moderate', # "nominal ductility" RM depending on construction year
-        "URM": 'conventional',
-        "CFS1": 'moderate', # non-ductile steel frame assumed, other category. wood behavior, but 2010 has CFS category
-        "CFS2": 'moderate',
-    }
-
-    # ductile coupled walls is assumed to be classified as "CSW", which is ductile shear wall as it is the more conservative one
-    # it is assumed that RM construction 2015 and after are "ductile"
-
     def flowchart_2025(lfrs):
-        ductility_level = ductility_lookup[lfrs]
+        ductility_level = DUCTILITY_LOOKUP_TABLE.loc['high-code', lfrs]
         R_d = R_D_TABLE(lfrs, ductility_level=ductility_level)
         R_o = R_O_TABLE(lfrs, ductility_level=ductility_level)
 
@@ -3670,8 +3543,9 @@ def estimate_SEG_ductility(lfrs, number_of_stories, Rd_2025, Rd_historical):
         lfrsh = lfrs 
 
     base_ductility = SEG_BASE_POST_PEAK_PARAMS.loc['d_peak', lfrsh]
+    period_adjustment_factor = Rd_historical / Rd_2025
 
-    return np.maximum(base_ductility * Rd_historical / Rd_2025, 1.0)
+    return np.maximum(base_ductility * period_adjustment_factor, 1.0)
 
 
 def estimate_SEG_postcap(lfrs, number_of_stories, Rd_2025, Rd_historical):
@@ -3697,8 +3571,9 @@ def estimate_SEG_postcap(lfrs, number_of_stories, Rd_2025, Rd_historical):
         lfrsh = lfrs 
 
     base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['e_plateau', lfrsh]
+    period_adjustment_factor = Rd_historical / Rd_2025
 
-    return np.maximum(base_postcap * Rd_historical / Rd_2025, 1.0)
+    return np.maximum(base_postcap * period_adjustment_factor, 1.0)
 
 def estimate_SEG_residual(lfrs, number_of_stories):
     '''
@@ -3926,10 +3801,33 @@ def get_SEG_ductility():
     '''
     
 
+
+    ########## wood light frame
+
+    # sourced from FEMA P-695 (ATC-63), FEMA P-2139-2
+    # Goda & Atkinson (2011) for Canada
+    # 1-5 stories, various wall aspect ratios
+
+    # categorize commercial & multifamily as wlf, single family as wlf-p9
+    wlf_mu = np.array([9.9, 7.1, 12.4, 7.9, 5.8, 5.4, 
+                             7.0, 9.9, 7.7, 7.1, 6.2, 5.7, 8.0])
+    
+    wlfp9_mu = np.array([9.9, 9.6, 9.9, 7.7, 8.0, 0.018/0.0055, 0.016/0.0045, 0.012/0.004])
+    wpb_mu = np.array([1.7, 7.3, 4.7, 3.5])
+
+    wd_source = np.mean(wlf_mu)
+    wlfp9_d_source = np.mean(wlfp9_mu)
+    wpb_d_source = np.mean(wpb_mu)
+
+
+    # post-cap: from SEG component
+    # also sourced from FEMA P-2139-2 best estimate properties of simplified backbone curve
+
     # Table F.3, F.4
     # all wood shear wall components, h/b < 1.0
-    wd_source = np.mean([4.0, 2.6, 3.1, 2.3, 2.0, 3.6, 3.6, 3.5, 4.6, 5.0, 4.4, 5.7, 5.7, 4.4, 3.8, 5.0])
-    we_source = np.mean([5.0, 3.6, 4.0, 3.0, 2.5, 4.0, 4.0, 4.0, 5.0, 6.0, 5.0, 6.3, 6.3, 5.0, 4.0, 9.0])
+    # wd_source = np.mean([4.0, 2.6, 3.1, 2.3, 2.0, 3.6, 3.6, 3.5, 4.6, 5.0, 4.4, 5.7, 5.7, 4.4, 3.8, 5.0])
+    we_source = np.mean(np.array([10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 8.0, 4.0])/0.75)
+    # we_source = np.mean([5.0, 3.6, 4.0, 3.0, 2.5, 4.0, 4.0, 4.0, 5.0, 6.0, 5.0, 6.3, 6.3, 5.0, 4.0, 9.0])
     wc_source = np.mean([0.3, 0.2, 0.2, 0.2, 0.2, 0.3, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.855])
 
     ########## steel moment frame
@@ -4023,6 +3921,28 @@ def get_SEG_ductility():
     cfs2c_source = np.mean([0.8, 0.6, 0.9])
 
     ########### concrete moment frames
+    cmfd_source = 0.025/0.004
+
+    # source: Haselton study in FEMA P-695, Haselton et al. PEER Report 2007/12
+    # Haselton et al. PEER report 2007/08, Fazileh et al. (2022) for Canada
+    # includes both space frame and perimeter frame archetypes
+
+    # SPECIAL rc moment frames
+    # NOT considering ordinary moment frames
+    cmfl_mu = np.array([14.0, 19.6, 16.1, 14.0,
+                       np.mean([0.077, 0.079, 0.077, 0.077, 0.085, 0.085, 0.076, 0.067])/0.004, 
+                       5.79, 6.27, 5.68, 6.26])
+    cmfm_mu = np.array([10.9, 11.3, 13.4, 13.2,
+                       np.mean([0.038, 0.043, 0.047, 0.05, 0.056])/0.004,
+                       2.89, 3.99, 4.03, 4.50, 4.16, 3.64])
+    cmfh_mu = np.array([9.8, 7.4, 4.1, 7.5, 8.6, 4.4, 3.0, 3.7, 2.8, 3.3,
+                       np.mean([0.023, 0.028, 0.035, 0.024, 0.031, 0.019, 0.021, 0.026, 
+                                0.022, 0.024, 0.020, 0.022, 0.016, 0.018, 0.023, 0.018, 0.023])/0.004])
+
+    cmfdl_source = np.mean(cmfl_mu)
+    cmfdm_source = np.mean(cmfm_mu)
+    cmfdh_source = np.mean(cmfh_mu)
+    
 
     # CMF estimate story drift capacity as beam chord rotation capacity
     # Visnjic (2015) shows this is true up until ~12 stories
@@ -4032,13 +3952,25 @@ def get_SEG_ductility():
     # in aggregate, we'll use NIST GCR 17-917-45, which reports the 
     # ACI 369 (SEG) value as being 0.02 to 0.025 radians. We take the upper
     # value as the ductile peak plastic rotation.
-    cmfd_source = 0.025/0.0075
-    cmfe_source = 0.05/0.0075
+    cmfe_source = 0.05/0.004
     cmfc_source = 0.2
-    # normalize against a presumed yield of 0.0075
+    # normalize against a presumed yield of 0.004
     # low rises get 1.2 bump
     # mid rises 1.0
     # high rises have 0.6 penalty
+
+    ####################### concrete shear walls
+
+    # sourced from NIST GCR 10-917-8 for special concrete shear walls (Gogus & Wallace 2015)
+    # Canada source from Nazari & Saatcioglu (2017)
+
+    cswl_mu = np.array([9, 12, 23, 48/5])
+    cswm_mu = np.array([22, 19, 25, 17, 85/12, 6/.5])
+    cswh_mu = np.array([35, 21, 18, 9, 12, 13, 21, 38, 25, 17, 50, 30, 24, 85/12, 6/.5])
+
+    cswld_source = np.mean(cswl_mu)
+    cswmd_source = np.mean(cswm_mu)
+    cswhd_source = np.mean(cswh_mu)
 
     # CSW flexure controlled: take as mid and high rises
     # component: both walls and coupling beams, conforming
@@ -4076,9 +4008,9 @@ def get_SEG_ductility():
     # this represents the highest ductility available
     # any reductions would be applied by the ductility level, tied to code era
     return pd.DataFrame({
-        "WLF-P9": [wd_source, we_source, wc_source],
+        "WLF-P9": [wlfp9_d_source, we_source, wc_source],
         "WLF": [wd_source, we_source, wc_source],
-        "WPB": [wd_source, we_source, wc_source],
+        "WPB": [wpb_d_source, we_source, wc_source],
         'SMFL' : [smfdl_source, smfe_source, smfc_source],
         'SMFM' : [smfdm_source, 0.66*smfe_source, smfc_source],
         'SMFH' : [smfdh_source, 0.5*smfe_source, smfc_source],
@@ -4086,30 +4018,30 @@ def get_SEG_ductility():
         'SBFM' : [sbfdm_source, 0.66*sbfe_source, sbfc_source],
         'SBFH' : [sbfdh_source, 0.5*sbfe_source, sbfc_source],
         'SLF' : [cfs2d_source, cfs2e_source, cfs2c_source],
-        'SCWL' : [cswfd_source, cswfe_source, cswfc_source], # use flexure ctrl shear wall
-        'SCWM' : [0.66*cswfd_source, 0.66*cswfe_source, cswfc_source], # use flexure ctrl shear wall
-        'SCWH' : [0.5*cswfd_source, 0.5*cswfe_source, cswfc_source], # use flexure ctrl shear wall
+        'SCWL' : [cmfdl_source, cswfe_source, cswfc_source], # use flexure ctrl shear wall
+        'SCWM' : [cswmd_source, 0.66*cswfe_source, cswfc_source], # use flexure ctrl shear wall
+        'SCWH' : [cswhd_source, 0.5*cswfe_source, cswfc_source], # use flexure ctrl shear wall
         'SIWL' : [iwd_source, iwe_source, iwc_source],
         'SIWM' : [0.66*iwd_source, 0.66*iwe_source, iwc_source],
         'SIWH' : [0.5*iwd_source, 0.5*iwe_source, iwc_source],
-        'CMFL' : [1.2*cmfd_source, 1.2*cmfe_source, cmfc_source],
-        'CMFM' : [cmfd_source, cmfe_source, cmfc_source],
-        'CMFH' : [0.66*cmfd_source, 0.66*cmfe_source, cmfc_source],
-        'CSWL' : [cswsd_source, cswse_source, cswsc_source], # shear control
-        'CSWM' : [cswfd_source, cswfe_source, cswfc_source], # flexure control
-        'CSWH' : [cswfd_source, cswfe_source, cswfc_source], # flexure control
+        'CMFL' : [cmfdl_source, 1.2*cmfe_source, cmfc_source],
+        'CMFM' : [cmfdm_source, cmfe_source, cmfc_source],
+        'CMFH' : [cmfdh_source, 0.66*cmfe_source, cmfc_source],
+        'CSWL' : [cswld_source, cswse_source, cswsc_source], # shear control
+        'CSWM' : [cswmd_source, cswfe_source, cswfc_source], # flexure control
+        'CSWH' : [cswhd_source, cswfe_source, cswfc_source], # flexure control
         'CIWL' : [iwd_source, iwe_source, iwc_source],
         'CIWM' : [0.66*iwd_source, 0.66*iwe_source, iwc_source],
         'CIWH' : [0.5*iwd_source, 0.5*iwe_source, iwc_source],
-        'PCWL' : [cswsd_source, cswse_source, cswsc_source], # shear control, assume CSW
-        'PCWM' : [cswfd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
-        'PCWH' : [cswfd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
-        'PCF1L' : [cswsd_source, cswse_source, cswsc_source], # shear control, assume CSW
-        'PCF1M' : [cswfd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
-        'PCF1H' : [cswfd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
-        'PCF2L' : [1.2*cmfd_source, 1.2*cmfe_source, cmfc_source], # assume CMF
-        'PCF2M' : [cmfd_source, cmfe_source, cmfc_source],              # assume CMF
-        'PCF2H' : [0.66*cmfd_source, 0.66*cmfe_source, cmfc_source], # assume CMF
+        'PCWL' : [cswld_source, cswse_source, cswsc_source], # shear control, assume CSW
+        'PCWM' : [cswmd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
+        'PCWH' : [cswhd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
+        'PCF1L' : [cswld_source, cswse_source, cswsc_source], # shear control, assume CSW
+        'PCF1M' : [cswmd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
+        'PCF1H' : [cswhd_source, cswfe_source, cswfc_source], # flexure control, assume CSW
+        'PCF2L' : [cmfdl_source, 1.2*cmfe_source, cmfc_source], # assume CMF
+        'PCF2M' : [cmfdm_source, cmfe_source, cmfc_source],     # assume CMF
+        'PCF2H' : [cmfdh_source, 0.66*cmfe_source, cmfc_source], # assume CMF
         'RMLL'  : [rmd_source, rme_source, rmc_source],
         'RMLM'  : [0.66*rmd_source, 0.66*rme_source, rmc_source],
         'RMLH'  : [0.5*rmd_source, 0.5*rme_source, rmc_source],
@@ -4132,6 +4064,19 @@ SEG_BASE_POST_PEAK_PARAMS = get_SEG_ductility()
 def get_p695_overstrength():
     
     # design-to-peak overstrength
+    
+    wlf_omega = np.array([2.0, 2.5, 2.0, 3.7, 2.9, 2.6, 2.1, 3.6, 4.0, 4.0, 3.4, 3.3,
+                          np.mean([3.64, 3.13, 2.0, 2.90, 2.41, 1.89]),
+                          np.mean([3.32, 3.42, 3.53, 3.64, 2.84, 3.13, 3.22, 3.36,
+                                   7.78, 8.02, 8.23, 8.47, 4.06, 4.41, 4.51, 4.71]),
+                          np.mean([3.13, 1.53, 2.00, 1.29, 4.41, 1.55])])
+    wlfp9_omega = np.array([4.1, 3.8, 5.4, 3.5, 
+                            np.mean([12.10, 8.31, 5.00, 4.93, 8.72, 5.54, 3.76,
+                                     11.17, 11.51, 11.82, 12.10, 4.57, 4.73, 4.88, 5.00, 5.13, 5.36]),
+                            np.mean([12.10, 5.18, 8.73, 8.31, 2.73, 3.02, 5.00, 2.22, 3.82, 4.93, 2.79, 3.21])])
+    wpb_omega = 1.5*np.array([54.5/52.8, 76.9/70.8, 32.4/28.6, 27.4/25.7])
+
+
     smfl_omega = np.array([4.63, 3.69, 2.88, 5.46, 3.94, 2.21, 2.78, 2.22,
                            np.mean([4.64, 3.68, 2.55, 3.45, 5.48, 3.93, 2.84, 3.58])])
     smfm_omega = np.array([4.45, 2.55, 3.44, 4.71, 3.27, 2.68, 2.27, 2.84, 2.61, 1.85,
@@ -4158,41 +4103,56 @@ def get_p695_overstrength():
     cfs2_omega = np.array([1.42, 1.54, 1.55, 1.80, 1.54, 1.33, 1.49, 1.67, 2.13, 1.37, 1.46, 1.52, 1.62])
 
 
+    cmfl_omega = np.array([1.6, 1.8, 1.7, 4.0, 3.5, 3.1,
+                           np.mean([4.0, 4.9, 4.0, 1.6, 3.5, 4.4, 3.1, 1.8]),
+                           np.mean([1.60, 1.43, 2.86, 1.34, 1.59])])
+    cmfm_omega = np.array([1.6, 2.7, 1.6, 3.3,
+                          np.mean([1.6, 1.7, 2.7, 1.6, 3.3]),
+                          np.mean([1.44, 1.55, 1.31, 1.34, 2.29, 2.01])])
+    cmfh_omega = np.array([1.6, 1.7, 2.6, 2.3, 2.8, 3.5, 1.8, 1.8, 1.8, 3.4,
+                          np.mean([1.6, 2.3, 2.6, 3.3, 2.9, 2.9, 2.7,
+                                   1.7, 2.1, 2.1, 3.2, 2.5, 2.8, 2.5, 2.4, 1.6, 2.0])])
+
+    cswl_omega = np.array([2.39, 1.82, 1.72, 1.2])
+    cswm_omega = np.array([1.45, 1.63, 2.98, 1.83, 1.1, 50/45])
+    cswh_omega = np.array([2.91, 4.44, 4.30, 2.39, 1.82, 2.03, 1.98, 1.50, 2.98, 1.83, 1.85, 5.64, 3.08, 1.1, 50/45])
+
+
     return {
-        "WLF-P9":   3.00,
-        "WLF":      2.50,
-        "WPB":      2.50,
+        "WLF-P9":   np.mean(wlfp9_omega),
+        "WLF":      np.mean(wlf_omega),
+        "WPB":      np.mean(wpb_omega),
         "SMFL":     np.mean(smfl_omega),
         "SMFM":     np.mean(smfm_omega),
         "SMFH":     np.mean(smfh_omega),
         "SBFL":     np.mean(sbfl_omega),
         "SBFM":     np.mean(sbfm_omega),
         "SBFH":     np.mean(sbfh_omega),
-        "SLF":      2.00,
-        "SCWL":     2.25,
-        "SCWM":     2.25,
-        "SCWH":     2.25,
+        "SLF":      np.mean(smfl_omega),
+        "SCWL":     np.mean(cswl_omega),
+        "SCWM":     np.mean(cswm_omega),
+        "SCWH":     np.mean(cswh_omega),
         "SIWL":     2.00,
         "SIWM":     2.00,
         "SIWH":     2.00,
-        "CMFL":     3.00,
-        "CMFM":     3.00,
-        "CMFH":     3.00,
-        "CSWL":     2.50,
-        "CSWM":     2.50,
-        "CSWH":     2.50,
+        "CMFL":     np.mean(cmfl_omega),
+        "CMFM":     np.mean(cmfm_omega),
+        "CMFH":     np.mean(cmfh_omega),
+        "CSWL":     np.mean(cswl_omega),
+        "CSWM":     np.mean(cswm_omega),
+        "CSWH":     np.mean(cswh_omega),
         "CIWL":     2.25,
         "CIWM":     2.25,
         "CIWH":     2.25,
-        "PCWL":     2.00,
-        "PCWM":     2.00,
-        "PCWH":     2.00,
-        "PCF1L":    2.00,
-        "PCF1M":    2.00,
-        "PCF1H":    2.00,
-        "PCF2L":    2.00,
-        "PCF2M":    2.00,
-        "PCF2H":    2.00,
+        "PCWL":     np.mean(cswl_omega),
+        "PCWM":     np.mean(cswm_omega),
+        "PCWH":     np.mean(cswh_omega),
+        "PCF1L":    np.mean(cswl_omega),
+        "PCF1M":    np.mean(cswm_omega),
+        "PCF1H":    np.mean(cswh_omega),
+        "PCF2L":    np.mean(cmfl_omega),
+        "PCF2M":    np.mean(cmfm_omega),
+        "PCF2H":    np.mean(cmfh_omega),
         "RMLL":     2.00,
         "RMLM":     2.00,
         "RMLH":     2.00,
@@ -4205,7 +4165,7 @@ def get_p695_overstrength():
         "CFS1L":    np.mean(cfs1_omega),
         "CFS1M":    np.mean(cfs1_omega),
         "CFS1H":    np.mean(cfs1_omega),
-        "CFS2":     2.00,
+        "CFS2":     np.mean(cfs2_omega),
         }
 
 P695_BASE_OVERSTRENGTH_PARAMS = get_p695_overstrength()

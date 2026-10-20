@@ -326,6 +326,10 @@ class Inventory:
         Estimate the strength and displacement capacities of the building
         using the code-level and typology of the building, along with
         the original design strength.
+
+        These values are reference values (_y, _u, _p, _pc) that are fed into 
+        custom capacity curve builders, which may further modify them to match
+        a desired capacity curve.
         '''
         self.inventory_df['Vdj_story_design_shear'] = self.inventory_df['Vd_distributed_SEG_adjusted_NBCC_factored_Ve'].copy()
         # self.inventory_df['Vyj_story_yield_shear'] = [tuple(x * y for x, y in zip(t1, t2)) 
@@ -717,8 +721,8 @@ class Inventory:
 
         self.inventory_df["Rd_2025"] = [
             (
-                nbcc.R_D_TABLE(sfrs[0], ductility_level=nbcc.DUCTILITY_LOOKUP_TABLE.loc[lvl[0], sfrs[0]]),
-                nbcc.R_D_TABLE(sfrs[1], ductility_level=nbcc.DUCTILITY_LOOKUP_TABLE.loc[lvl[1], sfrs[1]]),
+                nbcc.R_D_TABLE(sfrs[0], ductility_level=nbcc.DUCTILITY_LOOKUP_TABLE.loc["high-code", sfrs[0]]),
+                nbcc.R_D_TABLE(sfrs[1], ductility_level=nbcc.DUCTILITY_LOOKUP_TABLE.loc["high-code", sfrs[1]]),
             )
             for lvl, sfrs
             in zip(

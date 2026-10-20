@@ -230,37 +230,95 @@ class CurveBuilder(NamedTuple):
 def _shear_default(Vy, Vp, c):
     return np.column_stack([Vy, Vp, c * Vp])
 
-def _drift_default(uy, up, uu, upc, Vy=None, Vp=None):
+def _drift_default(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     return np.column_stack([uy, up, upc])
 
 # ductile, elastic until "effective" yield, then perfectly plastic
 # until halfway between ultimate and yield, then 0.8Vmax
 def _shear_ductile_steel(Vy, Vp, c):
+    '''EPP-style eff_yield_peak-peak-ultimate model'''
     return np.column_stack([Vp, Vp, 0.8*Vp, c * Vp])
 
-def _drift_ductile_steel(uy, up, uu, upc, Vy, Vp):
+def _drift_ductile_steel(uy, up, uu, upc, Vy, Vp, c=None):
+    '''EPP-style eff_yield_peak-peak-ultimate model'''
+    uy_eff = Vp/Vy*uy
+    mu_u = uu/uy
+    # FEMA 351 shows that even Pre-Northridge buildings have 
+    # ultimate-to-yield ratio of about 2.5-3.0. Our current values
+    # are 2.07 around Northridge, and 3.0 post-Northridge. It is then
+    # reasonable to provide some nominal 2.0 ductility for pre-northridge
+    # cases that bottom out at 1.0. This value is the moderate-extensive 
+    # damage state for pre-northridge in FEMA 351
+    mu_u = np.maximum(mu_u, 2.0)
+    uu_eff = mu_u * uy_eff
+    mu_pc = upc/uy
+    upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
+    return np.column_stack([uy_eff, 0.5*(uy_eff + uu_eff), uu_eff, upc_eff])
+
+def _shear_cfs(Vy, Vp, c):
+    '''yield-peak-ultimate model'''
+    return np.column_stack([Vy, Vp, 0.8*Vp, c * Vp])
+
+def _drift_cfs(uy, up, uu, upc, Vy=None, Vp=None, c=None):
+    '''yield-peak-ultimate model'''
+    return np.column_stack([uy, 0.5*(uy + uu), uu, upc])
+
+
+def _shear_ductile_cmf(Vy, Vp, c):
+    '''EPP-style eff_yield_peak-peak-ultimate model'''
+    return np.column_stack([Vp, Vp, 0.8*Vp, c * Vp])
+
+def _drift_ductile_cmf(uy, up, uu, upc, Vy, Vp, c=None):
+    '''EPP-style eff_yield_peak-peak-ultimate model'''
     uy_eff = Vp/Vy*uy
     mu_u = uu/uy
     uu_eff = mu_u * uy_eff
     mu_pc = upc/uy
-    upc_eff = mu_pc * uy_eff
+    upc_eff = 1.2*uu_eff
     return np.column_stack([uy_eff, 0.5*(uy_eff + uu_eff), uu_eff, upc_eff])
 
-def _shear_cfs(Vy, Vp, c):
+
+
+def _shear_wood(Vy, Vp, c):
+    '''yield-peak-ultimate model'''
     return np.column_stack([Vy, Vp, 0.8*Vp, c * Vp])
 
-def _drift_cfs(uy, up, uu, upc, Vy=None, Vp=None):
+def _drift_wood(uy, up, uu, upc, Vy=None, Vp=None, c=None):
+    '''yield-peak-ultimate model'''
     return np.column_stack([uy, 0.5*(uy + uu), uu, upc])
 
+def _drift_wpb(uy, up, uu, upc, Vy=None, Vp=None, c=None):
+    '''Compared to wlf, allow more post-cap ductility'''
+    return np.column_stack([uy, 0.5*(uy + uu), uu, 2*uu])
+
+def _shear_sw(Vy, Vp, c):
+    '''shear-wall yield-peak-dropoff model'''
+    return np.column_stack([Vy, Vp, c * Vp, c * Vp])
+
+def _drift_sw(uy, up, uu, upc, Vy=None, Vp=None, c=None):
+    '''shear-wall yield-peak-dropoff model'''
+    
+    x = 0.15*uu/(0.2*Vp)*(1-c)*Vp
+    uplateau = 0.85*uu + x
+    return np.column_stack([uy, 0.85*uu, uplateau, 3*uplateau])
 
 DEFAULT_BUILDER = CurveBuilder(_shear_default, _drift_default)
 
 CAPACITY_BUILDERS = {
+    "WLF": CurveBuilder(_shear_wood, _drift_wood),
+    "WLF-P9": CurveBuilder(_shear_wood, _drift_wood),
+    "WPB": CurveBuilder(_shear_wood, _drift_wpb),
     "SMF": CurveBuilder(_shear_ductile_steel, _drift_ductile_steel),
     "SBF": CurveBuilder(_shear_ductile_steel, _drift_ductile_steel),
     "SLF": CurveBuilder(_shear_cfs, _drift_cfs),
     "CFS1": CurveBuilder(_shear_cfs, _drift_cfs),
     "CFS2": CurveBuilder(_shear_cfs, _drift_cfs),
+    "CMF": CurveBuilder(_shear_ductile_cmf, _drift_ductile_cmf),
+    "PCF2": CurveBuilder(_shear_ductile_cmf, _drift_ductile_cmf),
+    "CSW": CurveBuilder(_shear_sw, _drift_sw),
+    "PCW": CurveBuilder(_shear_sw, _drift_sw),
+    "PCF1": CurveBuilder(_shear_sw, _drift_sw),
+    "SCW": CurveBuilder(_shear_sw, _drift_sw),
 }
 
 
@@ -289,6 +347,6 @@ def build_capacity_curves(lfrs, Vyj, Vpj, c, uyj, upj, uuj, upcj):
         shear = b.shear(Vyj[d], Vpj[d], c[d])
         out["story_normalized_shear"].append(shear)
         out["story_drift_ratio_capacity"].append(b.drift(uyj[d], upj[d], uuj[d], upcj[d],
-                                                         Vyj[d], Vpj[d]))
+                                                         Vyj[d], Vpj[d], c[d]))
 
     return {k: tuple(v) for k, v in out.items()}
