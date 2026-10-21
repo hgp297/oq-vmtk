@@ -2475,7 +2475,9 @@ def vs_nbcc_2025(row, seismic_hazard_params, historical_mode=False):
                 R_o = 1.0
             elif code_year == 1970:
                 K_factor = K_TABLE_1970(lfrs)
-                R_d = np.minimum(6.8/K_factor, 1.35*R_d)/1.35
+                duct_contemporary = DUCTILITY_LOOKUP_TABLE.loc['low-code', lfrs]
+                R_d_contemporary = R_D_TABLE(lfrs, ductility_level=duct_contemporary)
+                R_d = np.minimum(6.8/K_factor, 1.35*R_d_contemporary)/1.35
                 R_o = 1.0
             elif (code_year >= 1975) and (code_year <= 1985):
                 K_factor = K_TABLE_1975(lfrs, number_of_stories)
@@ -2486,7 +2488,9 @@ def vs_nbcc_2025(row, seismic_hazard_params, historical_mode=False):
                 flexure_controlled = number_of_stories > 3
                 built_after_1995 = code_year >= 1995
                 R_factor = R_TABLE_1990(lfrs, flexure_controlled=flexure_controlled, built_after_1995=built_after_1995)
-                R_d = np.minimum(R_factor, R_d)
+                duct_contemporary = DUCTILITY_LOOKUP_TABLE.loc['moderate-code', lfrs]
+                R_d_contemporary = R_D_TABLE(lfrs, ductility_level=duct_contemporary)
+                R_d = np.minimum(R_factor, R_d_contemporary)
                 R_o = 1.0
             else:
                 pass
@@ -3352,6 +3356,12 @@ def adjusted_earthquake_load_factor(lfrs, code_year):
     }[code_year]
 
 def get_historical_Rd(code_year, code_level, lfrs, number_of_stories):
+    '''
+    Calculate likely Rd of the era according to SEG period adjustments
+    
+    Below, R_d is the post-SEG period adjustment, while Rd is the 
+    likely contemporary Rd that an engineer would have used.
+    '''
     
     ductility_level = DUCTILITY_LOOKUP_TABLE.loc[code_level, lfrs]
     Rd = R_D_TABLE(lfrs, ductility_level=ductility_level)
@@ -3543,7 +3553,7 @@ def estimate_SEG_ductility(lfrs, number_of_stories, Rd_2025, Rd_historical):
         lfrsh = lfrs 
 
     base_ductility = SEG_BASE_POST_PEAK_PARAMS.loc['d_peak', lfrsh]
-    period_adjustment_factor = Rd_historical / Rd_2025
+    period_adjustment_factor = (Rd_historical - 0.9) / (Rd_2025 - 0.9)
 
     return np.maximum(base_ductility * period_adjustment_factor, 1.0)
 
@@ -3571,7 +3581,7 @@ def estimate_SEG_postcap(lfrs, number_of_stories, Rd_2025, Rd_historical):
         lfrsh = lfrs 
 
     base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['e_plateau', lfrsh]
-    period_adjustment_factor = Rd_historical / Rd_2025
+    period_adjustment_factor = (Rd_historical - 0.9) / (Rd_2025 - 0.9)
 
     return np.maximum(base_postcap * period_adjustment_factor, 1.0)
 
@@ -3998,10 +4008,25 @@ def get_SEG_ductility():
     iwe_source = np.mean([0.01])/0.0025
     iwc_source = 0.2
 
-    # RM, assume flexure controlled
+    ############### reinforced masonry
+
+    # from NIST GCR 10-917-8 (Koutromanos & Shing 2010)
+    # Mahrous et al (2025) for Canada (normalized against 0.0025 yield drift instead of ~0.005 from that study)
+    # group into low and mid/high story 
+    # highly dependent on axial load. we'll average between low and high cases
+    
+    rml_mu = np.array([5.2, 8.1, 5.2, 8.3, 13.3, 14.4, 13.3, 14.4])
+    rmh_mu = np.array([11.8, 6.4, 14.6, 28.4, 7.1, 16.0, 11.3, 13.6, 42.8, 29.0, 17.7, 20.7,
+                       0.027/0.0025, 0.012/0.0025, 0.0287/0.0025, 0.0119/0.0025])
+    rmld_source = np.mean(rml_mu)
+    rmhd_source = np.mean(rmh_mu)
+
+    rmd_source = 0.01/0.0025
+
+
+    # post-cap parameters
     # take upper bound
     # assume fully grouted
-    rmd_source = 0.01/0.0025
     rme_source = 0.04/0.0025
     rmc_source = 0.5
 
@@ -4042,12 +4067,12 @@ def get_SEG_ductility():
         'PCF2L' : [cmfdl_source, 1.2*cmfe_source, cmfc_source], # assume CMF
         'PCF2M' : [cmfdm_source, cmfe_source, cmfc_source],     # assume CMF
         'PCF2H' : [cmfdh_source, 0.66*cmfe_source, cmfc_source], # assume CMF
-        'RMLL'  : [rmd_source, rme_source, rmc_source],
-        'RMLM'  : [0.66*rmd_source, 0.66*rme_source, rmc_source],
-        'RMLH'  : [0.5*rmd_source, 0.5*rme_source, rmc_source],
-        'RMCL'  : [rmd_source, rme_source, rmc_source],
-        'RMCM'  : [0.66*rmd_source, 0.66*rme_source, rmc_source],
-        'RMCH'  : [0.5*rmd_source, 0.5*rme_source, rmc_source],
+        'RMLL'  : [rmld_source, rme_source, rmc_source],
+        'RMLM'  : [rmhd_source, 0.66*rme_source, rmc_source],
+        'RMLH'  : [rmhd_source, 0.5*rme_source, rmc_source],
+        'RMCL'  : [rmld_source, rme_source, rmc_source],
+        'RMCM'  : [rmhd_source, 0.66*rme_source, rmc_source],
+        'RMCH'  : [rmhd_source, 0.5*rme_source, rmc_source],
         'URML'  : [urmd_source, urme_source, urmc_source],
         'URMM'  : [0.66*urmd_source, 0.66*urme_source, urmc_source],
         'URMH'  : [0.66*urmd_source, 0.66*urme_source, urmc_source],
@@ -4118,6 +4143,13 @@ def get_p695_overstrength():
     cswh_omega = np.array([2.91, 4.44, 4.30, 2.39, 1.82, 2.03, 1.98, 1.50, 2.98, 1.83, 1.85, 5.64, 3.08, 1.1, 50/45])
 
 
+    
+    
+    rml_omega = np.array([1.84, 2.28, 1.62, 2.61, 1.84, 1.82, 1.62, 1.80])
+    rmh_omega = np.array([1.87, 1.89, 1.61, 1.65, 1.93, 1.68, 1.73, 1.59, 1.47, 1.41, 1.64, 1.46,
+                          3.6, 3.3, 3.4, 2.6])
+
+
     return {
         "WLF-P9":   np.mean(wlfp9_omega),
         "WLF":      np.mean(wlf_omega),
@@ -4153,12 +4185,12 @@ def get_p695_overstrength():
         "PCF2L":    np.mean(cmfl_omega),
         "PCF2M":    np.mean(cmfm_omega),
         "PCF2H":    np.mean(cmfh_omega),
-        "RMLL":     2.00,
-        "RMLM":     2.00,
-        "RMLH":     2.00,
-        "RMCL":     2.00,
-        "RMCM":     2.00,
-        "RMCH":     2.00,
+        "RMLL":     np.mean(rml_omega),
+        "RMLM":     np.mean(rmh_omega),
+        "RMLH":     np.mean(rmh_omega),
+        "RMCL":     np.mean(rml_omega),
+        "RMCM":     np.mean(rmh_omega),
+        "RMCH":     np.mean(rmh_omega),
         "URML":     2.00,
         "URMM":     2.00,
         "URMH":     2.00,

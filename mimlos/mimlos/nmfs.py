@@ -297,10 +297,17 @@ def _shear_sw(Vy, Vp, c):
 
 def _drift_sw(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     '''shear-wall yield-peak-dropoff model'''
-    
     x = 0.15*uu/(0.2*Vp)*(1-c)*Vp
-    uplateau = 0.85*uu + x
-    return np.column_stack([uy, 0.85*uu, uplateau, 3*uplateau])
+    uplateau = np.maximum(0.85*uu, uy) + x
+    return np.column_stack([uy, np.maximum(0.85*uu, uy), uplateau, 3*uplateau])
+
+def _shear_masonry(Vy, Vp, c):
+    '''yield-peak-ultimate model'''
+    return np.column_stack([Vy, Vp, 0.8*Vp, c * Vp])
+
+def _drift_masonry(uy, up, uu, upc, Vy=None, Vp=None, c=None):
+    '''yield-peak-ultimate model'''
+    return np.column_stack([uy, 0.5*(uy + uu), uu, 1.05*uu])
 
 DEFAULT_BUILDER = CurveBuilder(_shear_default, _drift_default)
 
@@ -319,6 +326,11 @@ CAPACITY_BUILDERS = {
     "PCW": CurveBuilder(_shear_sw, _drift_sw),
     "PCF1": CurveBuilder(_shear_sw, _drift_sw),
     "SCW": CurveBuilder(_shear_sw, _drift_sw),
+    "RMC": CurveBuilder(_shear_masonry, _drift_masonry),
+    "RML": CurveBuilder(_shear_masonry, _drift_masonry),
+    "URM": CurveBuilder(_shear_masonry, _drift_masonry),
+    "SIW": CurveBuilder(_shear_masonry, _drift_masonry),
+    "CIW": CurveBuilder(_shear_masonry, _drift_masonry),
 }
 
 
