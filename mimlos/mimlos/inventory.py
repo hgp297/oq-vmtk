@@ -848,11 +848,6 @@ class Inventory:
                     "Unsupported analysis location."
                 )
 
-        # TODO: stiffness-controlled buildings
-        # a likely solution:
-        # if yield drift hits the limit, recalculate stiffness k0
-        # such that k0 is the slope between (V_y, delta_limit)
-
     def _get_vancouver_hazard_pre2020(self, year, loc='city_hall'):
         '''
         Returns the site-specific hazard parameters for Vancouver, British Columbia.

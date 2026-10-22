@@ -300,7 +300,6 @@ def get_code_bins(lfrs):
     of the 2025 UBC Seismic Risk study performed by Arup. Definitions
     of benchmark high-code are set by the Seismic Evaluation Guidelines
 
-    TODO: Scientific basis of CanNSRM 1 has reference benchmark years
     For Vancouver, this would essentially be
     [1900, 1973, 1990, 2005]
     [pre , mod , high, high]
@@ -2863,8 +2862,6 @@ def distribute_story_shear(row,
     V_j_ew = calculate_Vj(lfrs_ew, vs_ew)
 
     return V_j_ns, V_j_ew
-
-# TODO: condense repeated functions
 # R factor
 
 
@@ -3554,8 +3551,9 @@ def estimate_SEG_ductility(lfrs, number_of_stories, Rd_2025, Rd_historical):
 
     base_ductility = SEG_BASE_POST_PEAK_PARAMS.loc['d_peak', lfrsh]
     period_adjustment_factor = (Rd_historical - 0.9) / (Rd_2025 - 0.9)
+    # period_adjustment_factor = 1.0
 
-    return np.maximum(base_ductility * period_adjustment_factor, 1.0)
+    return np.maximum(base_ductility * period_adjustment_factor, 1.1)
 
 
 def estimate_SEG_postcap(lfrs, number_of_stories, Rd_2025, Rd_historical):
@@ -3582,8 +3580,9 @@ def estimate_SEG_postcap(lfrs, number_of_stories, Rd_2025, Rd_historical):
 
     base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['e_plateau', lfrsh]
     period_adjustment_factor = (Rd_historical - 0.9) / (Rd_2025 - 0.9)
+    # period_adjustment_factor = 1.0
 
-    return np.maximum(base_postcap * period_adjustment_factor, 1.0)
+    return np.maximum(base_postcap * period_adjustment_factor, 1.1)
 
 def estimate_SEG_residual(lfrs, number_of_stories):
     '''
@@ -3790,7 +3789,6 @@ ROOF_FLOOR_WEIGHT_SEG_2025 = {
     '76mm Steel Deck with 90mm Concrete Topping':   2.8,
 }
 
-# TODO: enhanced calibration
 def get_SEG_ductility():
     '''
     use the following to get a 2025 value
@@ -3849,15 +3847,15 @@ def get_SEG_ductility():
     # for Fahnestock, treat 8-story as mid-rise
     # mix of ELF and RSA design
     smfl_mu = np.array([3.76, 4.72, 5.3, 3.76, 4.02, 4.84, 5.4, 4.5,
-                        np.mean([3.86, 5.01, 2.58, 2.18, 3.86, 4.34, 2.37, 2.94])])
+                        3.86, 5.01, 2.58, 2.18, 3.86, 4.34, 2.37, 2.94])
     smfm_mu = np.array([1.09, 2.50, 2.17, 3.98, 2.74, 2.35, 1.91, 2.34, 4.1, 3.1,
-                        np.mean([4.60, 4.57, 4.56, 4.91]),
-                        np.mean([5.59, 3.96, 4.98, 2.77]),
-                        np.mean([3.67, 4.04, 3.34, 3.60, 2.88, 3.14, 2.76, 2.96])])
+                        4.60, 4.57, 4.56, 4.91,
+                        5.59, 3.96, 4.98, 2.77,
+                        3.67, 4.04, 3.34, 3.60, 2.88, 3.14, 2.76, 2.96])
     smfh_mu = np.array([1.50, 2.90, 2.69, 3.55, 3.03, 2.32, 3.6, 3.7,
-                        np.mean([1.63, 1.50, 2.83, 2.40, 2.05, 3.21, 2.40]),
-                        np.mean([3.30, 2.91, 3.41, 3.62, 2.70, 2.38, 2.93, 3.36, 2.61, 2.21, 2.62, 2.81]),
-                        np.mean([3.63, 3.64, 3.21, 3.46])])
+                        1.63, 1.50, 2.83, 2.40, 2.05, 3.21, 2.40,
+                        3.30, 2.91, 3.41, 3.62, 2.70, 2.38, 2.93, 3.36, 2.61, 2.21, 2.62, 2.81,
+                        3.63, 3.64, 3.21, 3.46])
 
     smfdl_source = np.mean(smfl_mu)
     smfdm_source = np.mean(smfm_mu)
@@ -3902,12 +3900,12 @@ def get_SEG_ductility():
     # P-695 studies from Pehlivan et al. (2023), Shakeel et al. (2019)
     # should validate with Shamim & Rogers (2015), which is Canada specific (but steel sheathed)
     # 2-3 stories, multiple occupancies, R between 4 and 6.5
-    cfs1_mu = np.array(np.mean([3.5, 3.9, 3.4, 3.9, 3.5, 3.7, 3.5, 3.5,
+    cfs1_mu = np.array([3.5, 3.9, 3.4, 3.9, 3.5, 3.7, 3.5, 3.5,
                         3.6, 3.7, 3.8, 3.6, 3.5, 3.6, 3.2, 3.9, 
                         3.6, 3.7, 3.1, 3.6, 3.1, 3.3, 3.4, 3.2, 
-                        3.0, 3.1, 3.1, 3.1]),
-                        np.mean([6.9, 6.3, 4.8, 1.9, 7.0, 4.0, 4.6, 
-                                 3.9, 2.7, 4.5, 3.3, 4.6, 3.0, 4.1]))
+                        3.0, 3.1, 3.1, 3.1,
+                        6.9, 6.3, 4.8, 1.9, 7.0, 4.0, 4.6, 
+                                 3.9, 2.7, 4.5, 3.3, 4.6, 3.0, 4.1])
     
 
     # CFS with shear wall
@@ -3940,14 +3938,14 @@ def get_SEG_ductility():
     # SPECIAL rc moment frames
     # NOT considering ordinary moment frames
     cmfl_mu = np.array([14.0, 19.6, 16.1, 14.0,
-                       np.mean([0.077, 0.079, 0.077, 0.077, 0.085, 0.085, 0.076, 0.067])/0.004, 
+                       0.077/0.004, 0.079/0.004, 0.077/0.004, 0.077/0.004, 0.085/0.004, 0.085/0.004, 0.076/0.004, 0.067/0.004, 
                        5.79, 6.27, 5.68, 6.26])
     cmfm_mu = np.array([10.9, 11.3, 13.4, 13.2,
-                       np.mean([0.038, 0.043, 0.047, 0.05, 0.056])/0.004,
+                       0.038/0.004, 0.043/0.004, 0.047/0.004, 0.05/0.004, 0.056/0.004,
                        2.89, 3.99, 4.03, 4.50, 4.16, 3.64])
     cmfh_mu = np.array([9.8, 7.4, 4.1, 7.5, 8.6, 4.4, 3.0, 3.7, 2.8, 3.3,
-                       np.mean([0.023, 0.028, 0.035, 0.024, 0.031, 0.019, 0.021, 0.026, 
-                                0.022, 0.024, 0.020, 0.022, 0.016, 0.018, 0.023, 0.018, 0.023])/0.004])
+                       0.023/0.004, 0.028/0.004, 0.035/0.004, 0.024/0.004, 0.031/0.004, 0.019/0.004, 0.021/0.004, 0.026/0.004, 
+                        0.022/0.004, 0.024/0.004, 0.020/0.004, 0.022/0.004, 0.016/0.004, 0.018/0.004, 0.023/0.004, 0.018/0.004, 0.023/0.004])
 
     cmfdl_source = np.mean(cmfl_mu)
     cmfdm_source = np.mean(cmfm_mu)
@@ -3993,31 +3991,54 @@ def get_SEG_ductility():
     cswse_source = np.mean([0.02, 0.01])/0.0025
     cswsc_source = np.mean([0.20, 0.0])
 
+    ################## unreinforced masonry
+    # sourced from Magenes & Calvi (1997)
+    # Kappos et al. (2005)
+    urm_mu = np.array([4.25, 2.53, 3.27, 4.63, 1.87, 2.28, 4.54, 7.30, 6.45, 7.55,
+                       0.563/0.136, 1.633/0.374, 2.335/0.774, 0.588/0.075, 1.347/0.250, 2.132/0.506, 1.433/0.352])
+
     # URM: take as the wall, not spandrel, both rocking and sliding
     # assume typical toe crushing drift is 0.5%
-    urmd_source = np.mean([0.005, 0.004])/0.0025
+    urmd_source = np.mean(urm_mu)
+    # urmd_source = np.mean([0.005, 0.004])/0.0025
     urme_source = np.mean([0.005, 0.004])/0.0025
-    urmc_source = 0.8 # practically small
+    urmc_source = 0.1 # practically small
 
+    ############################ infill
+    # source: Kumar et al (2015), which aggregated a lot of CIW literature
+    # mainly focused on CIW as there are no SIW in database
+    # also has anchors for yield drift 
+
+    iw_mu = np.array([2.3, 4.0, 4.5, 4.3, 4.3, 4.3, 2.0, 3.0, 1.5, 1.3, 5.0, 2.0, 3.5, 2.0, 1.1, 3.2, 1.4, 3.2, 2.3, 4.5, 3.6, 2, 4, 2.1, 4.0, 1.82, 1.80])
     # infill RM
     # use infilled frame and masonry infill 
     # includes ductile, both flexible and stiff panels
     # assume aspect ratio of 1.0
     # D point is taken as the onset of residual (1.6*peak)
-    iwd_source = np.mean([1.6*0.0037, 0.01])/0.0025
-    iwe_source = np.mean([0.01])/0.0025
-    iwc_source = 0.2
+    iwd_source = np.mean(iw_mu)
+    # iwd_source = np.mean([1.6*0.0037, 0.01])/0.0025
+
+    iwe_upc = np.array([np.mean([0.01])/0.0025,
+                           np.mean([2.3, 4.0])*np.mean([1.0, 2.1]),
+                           1.0, 4.3*4.0, 4.3*5.0, 2.5*np.mean([1.8, 2.8]), 1.5*1.9,
+                           np.mean([1.3, 5.0])*np.mean([1.5,5.3]), np.mean([2.0,3.5])*np.mean([1.7*3.0]), 
+                           1.0, 1.0, 1.0, 1.0, 2.3*4.3, 4.5*2, 1.0, 1.0, 1.0])
+    iwe_source = np.mean(iwe_upc)
+    iwc_source = np.mean([0.2, 0.75, 0.4, 0.4, 0.85, 0.45, 0.4, 0.4, 0.8, 0.39, 0.23])
 
     ############### reinforced masonry
 
     # from NIST GCR 10-917-8 (Koutromanos & Shing 2010)
     # Mahrous et al (2025) for Canada (normalized against 0.0025 yield drift instead of ~0.005 from that study)
+    # Ezzeldin et al. (2016) 
     # group into low and mid/high story 
     # highly dependent on axial load. we'll average between low and high cases
     
-    rml_mu = np.array([5.2, 8.1, 5.2, 8.3, 13.3, 14.4, 13.3, 14.4])
+    rml_mu = np.array([5.2, 8.1, 5.2, 8.3, 13.3, 14.4, 13.3, 14.4,
+                       5.20, 13.25, 8.10, 16.0, 13.30, 19.0, 14.40, 24.36])
     rmh_mu = np.array([11.8, 6.4, 14.6, 28.4, 7.1, 16.0, 11.3, 13.6, 42.8, 29.0, 17.7, 20.7,
-                       0.027/0.0025, 0.012/0.0025, 0.0287/0.0025, 0.0119/0.0025])
+                       0.027/0.0025, 0.012/0.0025, 0.0287/0.0025, 0.0119/0.0025, 
+                       11.80, 14.50, 6.40, 10.67, 14.60, 22.50, 28.40, 34.80, 7.10, 11.80, 16.0, 24.32])
     rmld_source = np.mean(rml_mu)
     rmhd_source = np.mean(rmh_mu)
 
@@ -4091,52 +4112,52 @@ def get_p695_overstrength():
     # design-to-peak overstrength
     
     wlf_omega = np.array([2.0, 2.5, 2.0, 3.7, 2.9, 2.6, 2.1, 3.6, 4.0, 4.0, 3.4, 3.3,
-                          np.mean([3.64, 3.13, 2.0, 2.90, 2.41, 1.89]),
-                          np.mean([3.32, 3.42, 3.53, 3.64, 2.84, 3.13, 3.22, 3.36,
-                                   7.78, 8.02, 8.23, 8.47, 4.06, 4.41, 4.51, 4.71]),
-                          np.mean([3.13, 1.53, 2.00, 1.29, 4.41, 1.55])])
+                          3.64, 3.13, 2.0, 2.90, 2.41, 1.89,
+                          3.32, 3.42, 3.53, 3.64, 2.84, 3.13, 3.22, 3.36,
+                        7.78, 8.02, 8.23, 8.47, 4.06, 4.41, 4.51, 4.71,
+                          3.13, 1.53, 2.00, 1.29, 4.41, 1.55])
     wlfp9_omega = np.array([4.1, 3.8, 5.4, 3.5, 
-                            np.mean([12.10, 8.31, 5.00, 4.93, 8.72, 5.54, 3.76,
-                                     11.17, 11.51, 11.82, 12.10, 4.57, 4.73, 4.88, 5.00, 5.13, 5.36]),
-                            np.mean([12.10, 5.18, 8.73, 8.31, 2.73, 3.02, 5.00, 2.22, 3.82, 4.93, 2.79, 3.21])])
+                           12.10, 8.31, 5.00, 4.93, 8.72, 5.54, 3.76,
+                                     11.17, 11.51, 11.82, 12.10, 4.57, 4.73, 4.88, 5.00, 5.13, 5.36,
+                           12.10, 5.18, 8.73, 8.31, 2.73, 3.02, 5.00, 2.22, 3.82, 4.93, 2.79, 3.21])
     wpb_omega = 1.5*np.array([54.5/52.8, 76.9/70.8, 32.4/28.6, 27.4/25.7])
 
 
     smfl_omega = np.array([4.63, 3.69, 2.88, 5.46, 3.94, 2.21, 2.78, 2.22,
-                           np.mean([4.64, 3.68, 2.55, 3.45, 5.48, 3.93, 2.84, 3.58])])
+                           4.64, 3.68, 2.55, 3.45, 5.48, 3.93, 2.84, 3.58])
     smfm_omega = np.array([4.45, 2.55, 3.44, 4.71, 3.27, 2.68, 2.27, 2.84, 2.61, 1.85,
-                           np.mean([2.87, 4.71, 2.19, 3.25]),
-                           np.mean([2.54, 2.86, 2.00, 2.31, 1.27, 1.46, 1.24, 1.43])],
-                           np.mean([2.00, 2.29, 2.41, 2.57]))
+                           2.87, 4.71, 2.19, 3.25,
+                           2.54, 2.86, 2.00, 2.31, 1.27, 1.46, 1.24, 1.43,
+                           2.00, 2.29, 2.41, 2.57])
     smfh_omega = np.array([4.67, 3.59, 3.27, 2.71, 2.48, 2.61, 1.92, 1.68,
-                           np.mean([4.53, 4.67, 3.26, 2.65, 2.23, 2.69, 2.44, 2.57]),
-                           np.mean([1.91, 2.22, 1.33, 1.50]),
-                           np.mean([2.63, 3.31, 3.32, 3.52, 2.09, 2.52, 2.52, 2.77, 1.89, 2.27, 2.34, 2.39])])
+                           4.53, 4.67, 3.26, 2.65, 2.23, 2.69, 2.44, 2.57,
+                           1.91, 2.22, 1.33, 1.50,
+                           2.63, 3.31, 3.32, 3.52, 2.09, 2.52, 2.52, 2.77, 1.89, 2.27, 2.34, 2.39])
 
     sbfl_omega = np.array([1.44, 1.41, 1.38, 2.41])
     sbfm_omega = np.array([1.28, 1.86])
     sbfh_omega = np.array([1.60, 2.11, 2.18, 1.56])
 
     
-    cfs1_omega = np.array(np.mean([2.3, 3.1, 3.8, 3.0, 3.3, 3.7, 2.2, 3.2,
+    cfs1_omega = np.array([2.3, 3.1, 3.8, 3.0, 3.3, 3.7, 2.2, 3.2,
                            3.4, 3.1, 3.0, 3.5, 2.1, 3.2, 3.2, 3.0,
                            3.1, 3.2, 2.2, 3.4, 3.7, 2.1, 3.1 ,3.8, 
-                           3.2, 3.8, 3.0, 3.3]),
-                           np.mean([1.06, 1.17, 1.27, 1.16, 1.33, 1.23, 1.32, 
-                                    1.17, 1.16, 1.31, 1.21, 1.10, 1.17, 1.34]))
+                           3.2, 3.8, 3.0, 3.3,
+                           1.06, 1.17, 1.27, 1.16, 1.33, 1.23, 1.32, 
+                                    1.17, 1.16, 1.31, 1.21, 1.10, 1.17, 1.34])
 
     cfs2_omega = np.array([1.42, 1.54, 1.55, 1.80, 1.54, 1.33, 1.49, 1.67, 2.13, 1.37, 1.46, 1.52, 1.62])
 
 
     cmfl_omega = np.array([1.6, 1.8, 1.7, 4.0, 3.5, 3.1,
-                           np.mean([4.0, 4.9, 4.0, 1.6, 3.5, 4.4, 3.1, 1.8]),
-                           np.mean([1.60, 1.43, 2.86, 1.34, 1.59])])
+                           4.0, 4.9, 4.0, 1.6, 3.5, 4.4, 3.1, 1.8,
+                           1.60, 1.43, 2.86, 1.34, 1.59])
     cmfm_omega = np.array([1.6, 2.7, 1.6, 3.3,
-                          np.mean([1.6, 1.7, 2.7, 1.6, 3.3]),
-                          np.mean([1.44, 1.55, 1.31, 1.34, 2.29, 2.01])])
+                          1.6, 1.7, 2.7, 1.6, 3.3,
+                          1.44, 1.55, 1.31, 1.34, 2.29, 2.01])
     cmfh_omega = np.array([1.6, 1.7, 2.6, 2.3, 2.8, 3.5, 1.8, 1.8, 1.8, 3.4,
-                          np.mean([1.6, 2.3, 2.6, 3.3, 2.9, 2.9, 2.7,
-                                   1.7, 2.1, 2.1, 3.2, 2.5, 2.8, 2.5, 2.4, 1.6, 2.0])])
+                          1.6, 2.3, 2.6, 3.3, 2.9, 2.9, 2.7,
+                            1.7, 2.1, 2.1, 3.2, 2.5, 2.8, 2.5, 2.4, 1.6, 2.0])
 
     cswl_omega = np.array([2.39, 1.82, 1.72, 1.2])
     cswm_omega = np.array([1.45, 1.63, 2.98, 1.83, 1.1, 50/45])
@@ -4145,9 +4166,19 @@ def get_p695_overstrength():
 
     
     
-    rml_omega = np.array([1.84, 2.28, 1.62, 2.61, 1.84, 1.82, 1.62, 1.80])
+    rml_omega = np.array([1.84, 2.28, 1.62, 2.61, 1.84, 1.82, 1.62, 1.80,
+                          1.63, 1.78, 2.34, 1.99, 2.27, 2.67, 2.95,
+                          1.63, 1.48, 1.90, 2.40, 1.99, 2.27, 2.10, 2.56])
     rmh_omega = np.array([1.87, 1.89, 1.61, 1.65, 1.93, 1.68, 1.73, 1.59, 1.47, 1.41, 1.64, 1.46,
-                          3.6, 3.3, 3.4, 2.6])
+                          3.6, 3.3, 3.4, 2.6,
+                          1.67, 1.80, 1.54, 1.68, 1.49, 1.59, 1.48, 1.59, 1.55, 1.66, 1.32, 1.42,
+                          1.47, 1.76, 1.15, 1.34, 1.15, 1.24, 1.47, 1.76, 1.64, 1.42, 1.16, 1.20])
+
+    # capacity curve info from Kappos et al. (2005)
+    urm_omega = np.array([0.328/0.320, 0.214/0.189, 0.158/0.135, 0.248/0.231, 0.164/0.135, 0.111/0.092, 0.204/0.184])
+
+    # Kumar et al. calculated these from yield. We multiply by Ro
+    iw_omega = np.array([1/0.8, 1/0.8, 1/0.6, 1/0.8, 1/0.8, 1/0.9, 1/0.85, 1/0.95, 1/0.9, 1/0.9, 1/0.8, 1/0.9, 1/0.6, 1/0.8, 1/0.75])*1.5
 
 
     return {
@@ -4164,18 +4195,18 @@ def get_p695_overstrength():
         "SCWL":     np.mean(cswl_omega),
         "SCWM":     np.mean(cswm_omega),
         "SCWH":     np.mean(cswh_omega),
-        "SIWL":     2.00,
-        "SIWM":     2.00,
-        "SIWH":     2.00,
+        "SIWL":     np.mean(iw_omega),
+        "SIWM":     np.mean(iw_omega),
+        "SIWH":     np.mean(iw_omega),
         "CMFL":     np.mean(cmfl_omega),
         "CMFM":     np.mean(cmfm_omega),
         "CMFH":     np.mean(cmfh_omega),
         "CSWL":     np.mean(cswl_omega),
         "CSWM":     np.mean(cswm_omega),
         "CSWH":     np.mean(cswh_omega),
-        "CIWL":     2.25,
-        "CIWM":     2.25,
-        "CIWH":     2.25,
+        "CIWL":     np.mean(iw_omega),
+        "CIWM":     np.mean(iw_omega),
+        "CIWH":     np.mean(iw_omega),
         "PCWL":     np.mean(cswl_omega),
         "PCWM":     np.mean(cswm_omega),
         "PCWH":     np.mean(cswh_omega),
@@ -4191,9 +4222,9 @@ def get_p695_overstrength():
         "RMCL":     np.mean(rml_omega),
         "RMCM":     np.mean(rmh_omega),
         "RMCH":     np.mean(rmh_omega),
-        "URML":     2.00,
-        "URMM":     2.00,
-        "URMH":     2.00,
+        "URML":     np.mean(urm_omega),
+        "URMM":     np.mean(urm_omega),
+        "URMH":     np.mean(urm_omega),
         "CFS1L":    np.mean(cfs1_omega),
         "CFS1M":    np.mean(cfs1_omega),
         "CFS1H":    np.mean(cfs1_omega),
