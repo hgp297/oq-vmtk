@@ -393,55 +393,55 @@ class Inventory:
         ]
 
         # yield drift ratio using k0 estimate
-        # uy * k0 = Vy
-        self.inventory_df['u_yj_yield_drift'] = [ (V_j[0]/k0[0], V_j[1]/k0[1])
+        # deltay * k0 = Vy
+        self.inventory_df['delta_yj_yield_drift'] = [ (V_j[0]/k0[0], V_j[1]/k0[1])
             for V_j, k0 in zip(
                 self.inventory_df["Vyj_story_yield_shear_kN"],
                 self.inventory_df["modal_k0"]
             )]
 
-        # self.inventory_df['u_pj_peak_drift'] = [tuple(mu * omega * uy for mu, omega, uy in zip(mu_, omega_, uy_)) 
-        #     for mu_, omega_, uy_ in zip(
+        # self.inventory_df['delta_pj_peak_drift'] = [tuple(mu * omega * deltay for mu, omega, deltay in zip(mu_, omega_, deltay_)) 
+        #     for mu_, omega_, deltay_ in zip(
         #         self.inventory_df['hazus_mu_ductility'], 
         #         self.inventory_df['hazus_Omega_p_peak_overstrength'],
-        #         self.inventory_df['u_yj_yield_drift'])]
+        #         self.inventory_df['delta_yj_yield_drift'])]
 
-        self.inventory_df['u_pj_peak_drift'] = [tuple(rd * uy for rd, uy in zip(rd_, uy_)) 
-                    for rd_, uy_ in zip(
+        self.inventory_df['delta_pj_peak_drift'] = [tuple(rd * deltay for rd, deltay in zip(rd_, deltay_)) 
+                    for rd_, deltay_ in zip(
                         self.inventory_df['SEG_ultimate_to_yield_ductility'], 
-                        self.inventory_df['u_yj_yield_drift'])]
+                        self.inventory_df['delta_yj_yield_drift'])]
 
-        self.inventory_df['u_uj_ultimate_drift'] = [tuple(rd * uy for rd, uy in zip(rd_, uy_)) 
-                    for rd_, uy_ in zip(
+        self.inventory_df['delta_uj_ultimate_drift'] = [tuple(rd * deltay for rd, deltay in zip(rd_, deltay_)) 
+                    for rd_, deltay_ in zip(
                         self.inventory_df['SEG_ultimate_to_yield_ductility'], 
-                        self.inventory_df['u_yj_yield_drift'])]
+                        self.inventory_df['delta_yj_yield_drift'])]
 
-        self.inventory_df['u_pcj_postcap_drift'] = [tuple(rd * delta_y for rd, delta_y in zip(rd_, dy_)) 
+        self.inventory_df['delta_pcj_postcap_drift'] = [tuple(rd * theta_y for rd, theta_y in zip(rd_, dy_)) 
             for rd_, dy_ in zip(
                 self.inventory_df['SEG_postcap_to_yield_ductility'], 
-                self.inventory_df['u_yj_yield_drift'])]
+                self.inventory_df['delta_yj_yield_drift'])]
 
         
-        self.inventory_df["delta_yj_yield_drift_ratio"] = [tuple(uj / hj for uj in u_tuples) 
-            for u_tuples, hj in zip(self.inventory_df['u_yj_yield_drift'], self.inventory_df['h_j'])
+        self.inventory_df["theta_yj_yield_drift_ratio"] = [tuple(uj / hj for uj in delta_tuples) 
+            for delta_tuples, hj in zip(self.inventory_df['delta_yj_yield_drift'], self.inventory_df['h_j'])
         ]
 
-        self.inventory_df["delta_uj_ultimate_drift_ratio"] = [tuple(uj / hj for uj in u_tuples) 
-            for u_tuples, hj in zip(self.inventory_df['u_uj_ultimate_drift'], self.inventory_df['h_j'])
+        self.inventory_df["theta_uj_ultimate_drift_ratio"] = [tuple(uj / hj for uj in delta_tuples) 
+            for delta_tuples, hj in zip(self.inventory_df['delta_uj_ultimate_drift'], self.inventory_df['h_j'])
         ]
 
         # calculate (k0) peak displacements for each direction
-        self.inventory_df["delta_pj_peak_drift_ratio"] = [tuple(uj / hj for uj in u_tuples) 
-            for u_tuples, hj in zip(self.inventory_df['u_pj_peak_drift'], self.inventory_df['h_j'])
+        self.inventory_df["theta_pj_peak_drift_ratio"] = [tuple(uj / hj for uj in delta_tuples) 
+            for delta_tuples, hj in zip(self.inventory_df['delta_pj_peak_drift'], self.inventory_df['h_j'])
         ]
 
-        self.inventory_df["delta_pcj_postcap_drift_ratio"] = [tuple(uj / hj for uj in u_tuples) 
-            for u_tuples, hj in zip(self.inventory_df['u_pcj_postcap_drift'], self.inventory_df['h_j'])
+        self.inventory_df["theta_pcj_postcap_drift_ratio"] = [tuple(uj / hj for uj in delta_tuples) 
+            for delta_tuples, hj in zip(self.inventory_df['delta_pcj_postcap_drift'], self.inventory_df['h_j'])
         ]
 
 
         # # calculate (NMFS) yield from GA for each direction
-        # self.inventory_df["u_yj_yield_drift"] = [
+        # self.inventory_df['delta_yj_yield_drift"] = [
         #     (
         #         nmfs.calculate_elastic_displacement(V_j[0]*np.sum(W_j), h_j, GA[0]),
         #         nmfs.calculate_elastic_displacement(V_j[1]*np.sum(W_j), h_j, GA[1])
@@ -455,32 +455,32 @@ class Inventory:
         # ]
 
         # # calculate (NMFS) peak displacements for each direction
-        # self.inventory_df['u_pj_peak_drift'] = [tuple(mu * omega * uy for mu, omega, uy in zip(mu_, omega_, uy_)) 
-        #                             for mu_, omega_, uy_ in zip(
+        # self.inventory_df['delta_pj_peak_drift'] = [tuple(mu * omega * deltay for mu, omega, deltay in zip(mu_, omega_, deltay_)) 
+        #                             for mu_, omega_, deltay_ in zip(
         #                                 self.inventory_df['hazus_mu_ductility'], 
         #                                 self.inventory_df['hazus_Omega_p_peak_overstrength'],
-        #                                 self.inventory_df['u_yj_yield_drift'])]
+        #                                 self.inventory_df['delta_yj_yield_drift'])]
 
         # # corresponding drift ratios
-        # self.inventory_df["delta_yj_yield_drift_ratio"] = [
+        # self.inventory_df["theta_yj_yield_drift_ratio"] = [
         #     (
-        #         u_j[0] / h_j,
-        #         u_j[1] / h_j,
+        #         delta_j[0] / h_j,
+        #         delta_j[1] / h_j,
         #     )
-        #     for u_j, h_j in zip(
-        #         self.inventory_df["u_yj_yield_drift"],
+        #     for delta_j, h_j in zip(
+        #         self.inventory_df['delta_yj_yield_drift"],
         #         self.inventory_df["h_j"],
         #     )
         # ]       
 
         # # corresponding drift ratios
-        # self.inventory_df["delta_pj_peak_drift_ratio"] = [
+        # self.inventory_df["theta_pj_peak_drift_ratio"] = [
         #     (
-        #         u_j[0] / h_j,
-        #         u_j[1] / h_j,
+        #         delta_j[0] / h_j,
+        #         delta_j[1] / h_j,
         #     )
-        #     for u_j, h_j in zip(
-        #         self.inventory_df["u_pj_peak_drift"],
+        #     for delta_j, h_j in zip(
+        #         self.inventory_df['delta_pj_peak_drift"],
         #         self.inventory_df["h_j"],
         #     )
         # ]
@@ -492,15 +492,23 @@ class Inventory:
                 self.inventory_df["Vyj_story_yield_shear"],
                 self.inventory_df["Vpj_story_peak_shear"],
                 self.inventory_df["SEG_residual_strength_ratio"],
-                self.inventory_df["delta_yj_yield_drift_ratio"],
-                self.inventory_df["delta_pj_peak_drift_ratio"],
-                self.inventory_df["delta_uj_ultimate_drift_ratio"],
-                self.inventory_df["delta_pcj_postcap_drift_ratio"],
+                self.inventory_df["theta_yj_yield_drift_ratio"],
+                self.inventory_df["theta_pj_peak_drift_ratio"],
+                self.inventory_df["theta_uj_ultimate_drift_ratio"],
+                self.inventory_df["theta_pcj_postcap_drift_ratio"],
             )
         ]
 
         for col in ["story_normalized_shear", "story_drift_ratio_capacity"]:
             self.inventory_df[col] = [r[col] for r in results]
+
+        self.inventory_df["roof_drift_ratio_capacity"] = [
+            (
+                np.mean(arr1, axis=0),
+                np.mean(arr2, axis=0),
+            )
+            for arr1, arr2 in self.inventory_df["story_drift_ratio_capacity"]
+        ]
 
         self.inventory_df["story_forces_kN"] = [tuple(V_div_W * np.sum(W_x) for V_div_W in V_tuples) 
             for V_tuples, W_x in zip(self.inventory_df['story_normalized_shear'], self.inventory_df['W_nbcc_x_kN'])
@@ -512,6 +520,40 @@ class Inventory:
                 self.inventory_df["story_drift_ratio_capacity"],
                 self.inventory_df["h_j"],
             )
+        ]
+
+        self.inventory_df["yield_drift_ratio"] = [
+            (
+                np.mean(u1),
+                np.mean(u2),
+            )
+            for u1, u2 in self.inventory_df["theta_yj_yield_drift_ratio"]
+        ]
+
+        self.inventory_df["effective_yield_drift_ratio"] =  [ (
+            Vpj[0]/Vyj[0]*deltayj[0], 
+            Vpj[1]/Vyj[1]*deltayj[1], 
+            )
+            for Vpj, Vyj, deltayj in zip(
+                self.inventory_df["Vpj_story_peak_shear"],
+                self.inventory_df["Vyj_story_yield_shear"],
+                self.inventory_df["yield_drift_ratio"],
+            )]
+
+        self.inventory_df["ultimate_drift_ratio"] = [
+            (
+                np.mean(u1),
+                np.mean(u2),
+            )
+            for u1, u2 in self.inventory_df["theta_uj_ultimate_drift_ratio"]
+        ]
+
+        self.inventory_df["postcap_residual_drift_ratio"] = [
+            (
+                np.mean(u1),
+                np.mean(u2),
+            )
+            for u1, u2 in self.inventory_df["theta_pcj_postcap_drift_ratio"]
         ]
 
     def estimate_loads(self):

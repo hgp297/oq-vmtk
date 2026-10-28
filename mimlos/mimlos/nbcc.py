@@ -266,7 +266,7 @@ def determine_content_weight(row):
 
     # reduce load on roof to half
     ll_array = ll_occupancy*np.ones(number_of_stories)
-    # ll_array[-1] /= 2
+    ll_array[-1] /= 2
 
     # combine roof/floor with lfrs
     dl_array = dl_floor*np.ones(number_of_stories)
@@ -2746,16 +2746,22 @@ def determine_effective_period(lfrs, T_1, h_n, A_bldg, calibrate_to_yield=False)
     # TODO: these calibration make it so that yield drift is very 
     # sensitive to story height. Consider some amplification 
     # tied to empirical T1
-    if lfrs in ['SCW', 'SIW', 'CMF', 'CSW', 'CIW', 'PCW', 'PCF1', 'PCF2', 'RML', 'RMC', 'URM']: 
+    if lfrs in ['SCW', 'SIW', 'CSW', 'CIW', 'PCW', 'PCF1', 'RML', 'RMC', 'URM']: 
+        # 1/0.3 multiplier calibrates to Arup and SRG studies
         T_eff = T_1
         T_secant = T_1*(1/0.3)**0.5
+    elif lfrs in ['CMF', 'PCF2']:
+        # 1/0.2 multiplier calibrates to Arup and SRG studies
+        T_eff = T_1
+        T_secant = T_1*(1/0.2)**0.5
     # smf and sbf lengthening evidenced in NIST GCR studies
     elif lfrs in ['SMF']:
-        multiplier = 2.0
+        multiplier = 3.0
         T_eff = multiplier * T_1
         T_secant = multiplier * T_1
     elif lfrs in ['SBF', 'SLF', 'CFS2']:
-        multiplier = 1.70
+        # 3.0 multiplier calibrates to Arup and SRG studies
+        multiplier = 3.0
         T_eff = multiplier * T_1
         T_secant = multiplier * T_1
     # from Hafeez, Doudak, McClure (2018) for Canada. Also available is 
@@ -3550,8 +3556,8 @@ def estimate_SEG_ductility(lfrs, number_of_stories, Rd_2025, Rd_historical):
         lfrsh = lfrs 
 
     base_ductility = SEG_BASE_POST_PEAK_PARAMS.loc['d_peak', lfrsh]
-    period_adjustment_factor = (Rd_historical - 0.9) / (Rd_2025 - 0.9)
-    # period_adjustment_factor = 1.0
+    # period_adjustment_factor = (Rd_historical - 0.9) / (Rd_2025 - 0.9)
+    period_adjustment_factor = 1.0
 
     return np.maximum(base_ductility * period_adjustment_factor, 1.1)
 
@@ -3579,8 +3585,8 @@ def estimate_SEG_postcap(lfrs, number_of_stories, Rd_2025, Rd_historical):
         lfrsh = lfrs 
 
     base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['e_plateau', lfrsh]
-    period_adjustment_factor = (Rd_historical - 0.9) / (Rd_2025 - 0.9)
-    # period_adjustment_factor = 1.0
+    # period_adjustment_factor = (Rd_historical - 0.9) / (Rd_2025 - 0.9)
+    period_adjustment_factor = 1.0
 
     return np.maximum(base_postcap * period_adjustment_factor, 1.1)
 
@@ -3866,7 +3872,8 @@ def get_SEG_ductility():
     # assume class 1
 
     # smfd_source = 10.0
-    smfe_source = 12.0
+    # the bump calibrates to SRG 3rd edition values
+    smfe_source = 12.0*0.5
     smfc_source = 0.6
     # mid and high-rises, use HAZUS ratio
 
@@ -3889,7 +3896,9 @@ def get_SEG_ductility():
     # ratios act on axial tension, but would be similar for drifts
     # for residual capacity, use beams
     # these are typical n values for different shapes at average slenderness
-    sbfe_source = 12.0
+
+    # the bump calibrates to SRG 3rd edition values
+    sbfe_source = 12.0*2.5
     sbfc_source = 0.6
     # mid and high-rises, use HAZUS ratio
 
