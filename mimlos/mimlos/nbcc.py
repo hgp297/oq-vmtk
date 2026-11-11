@@ -2783,7 +2783,7 @@ def determine_effective_period(lfrs, T_1, h_n, A_bldg, calibrate_to_yield=False)
 def distribute_story_shear(row, 
                            methodology_year=2025, 
                            shear_field='SEG_adjusted_NBCC_factored_Ve',
-                           weight_array=None):
+                           weight_field='W_nbcc_x_kN'):
     '''
     Function to distribute the base shear to story forces along the 
     building height for the purposes of determining story strength forces.
@@ -2834,9 +2834,11 @@ def distribute_story_shear(row,
     lfrs_ew = row["Seismic Force Resisting System in the East-West Direction"]
 
     # placeholder, a seismic weight array with 1.0 for floors and 0.75 for roof
-    if weight_array is None:
+    if weight_field is None:
         W_x = np.ones(number_of_stories)
         W_x[-1] = 0.75
+    else:
+        W_x = row[weight_field]
 
     # estimate building height array
     if np.isnan(bldg_height):
@@ -3533,7 +3535,7 @@ def estimate_SEG_peak_to_yield_overstrength(lfrs, number_of_stories, Ro):
 
     return np.maximum(p695_peak_to_design_Omega/Ro, 1.0)
 
-def estimate_SEG_ductility(lfrs, number_of_stories, Rd_2025, Rd_historical):
+def estimate_SEG_ductility(lfrs, number_of_stories, code_level, Rd_2025, Rd_historical):
     '''
     Use a best-guess estimate of ductility (see SEG_BASE_POST_PEAK_PARAMS), 
     adjusted by SEG's correction for past code years to characterize the 
@@ -3557,12 +3559,23 @@ def estimate_SEG_ductility(lfrs, number_of_stories, Rd_2025, Rd_historical):
 
     base_ductility = SEG_BASE_POST_PEAK_PARAMS.loc['d_peak', lfrsh]
     # period_adjustment_factor = (Rd_historical - 0.9) / (Rd_2025 - 0.9)
-    period_adjustment_factor = 1.0
+    
+    # another idea for period adjustment
+    # 1) get era of building
+    # 2) get code-era ductility classification (ductile, moderate, limited, conventional)
+    # 3) use the ratio of <code_era_ductility>/<high-code_ductility> Rd as the period adjustment factor
+    ductility_level = DUCTILITY_LOOKUP_TABLE.loc[code_level, lfrs]
+    high_code_ductility = DUCTILITY_LOOKUP_TABLE.loc['high-code', lfrs]
+    code_era_Rd = R_D_TABLE(lfrs, ductility_level=ductility_level)
+    high_code_Rd = R_D_TABLE(lfrs, ductility_level=high_code_ductility)
+    period_adjustment_factor = code_era_Rd/high_code_Rd
+
+    # period_adjustment_factor = 1.0
 
     return np.maximum(base_ductility * period_adjustment_factor, 1.1)
 
 
-def estimate_SEG_postcap(lfrs, number_of_stories, Rd_2025, Rd_historical):
+def estimate_SEG_postcap(lfrs, number_of_stories, code_level, Rd_2025, Rd_historical):
     '''
     Use a best-guess estimate of post-cap (see SEG_BASE_POST_PEAK_PARAMS), 
     adjusted by SEG's correction for past code years to characterize the 
@@ -3586,7 +3599,14 @@ def estimate_SEG_postcap(lfrs, number_of_stories, Rd_2025, Rd_historical):
 
     base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['e_plateau', lfrsh]
     # period_adjustment_factor = (Rd_historical - 0.9) / (Rd_2025 - 0.9)
-    period_adjustment_factor = 1.0
+
+    ductility_level = DUCTILITY_LOOKUP_TABLE.loc[code_level, lfrs]
+    high_code_ductility = DUCTILITY_LOOKUP_TABLE.loc['high-code', lfrs]
+    code_era_Rd = R_D_TABLE(lfrs, ductility_level=ductility_level)
+    high_code_Rd = R_D_TABLE(lfrs, ductility_level=high_code_ductility)
+    period_adjustment_factor = code_era_Rd/high_code_Rd
+
+    # period_adjustment_factor = 1.0
 
     return np.maximum(base_postcap * period_adjustment_factor, 1.1)
 
@@ -4117,7 +4137,13 @@ SEG_BASE_POST_PEAK_PARAMS = get_SEG_ductility()
 
 
 def get_p695_overstrength():
-    
+    '''
+    FEMA P-695 Omega_0 factors for each SFRS, compiled from literature review
+    of appropriate analytical studies.
+
+    TODO:
+    Note that FEMA recommends that this limited to 3.0 and need not exceed 1.5 R
+    '''
     # design-to-peak overstrength
     
     wlf_omega = np.array([2.0, 2.5, 2.0, 3.7, 2.9, 2.6, 2.1, 3.6, 4.0, 4.0, 3.4, 3.3,

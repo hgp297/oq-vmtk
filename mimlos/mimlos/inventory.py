@@ -644,7 +644,7 @@ class Inventory:
         self.inventory_df['code_level'] = list(zip(code_level_ns, code_level_ew))
 
         
-
+    # TODO: rename this and update documentation (no longer Hazus)
     def determine_hazus_parameters(self):
         '''
         Returns HAZUS parameters
@@ -822,25 +822,27 @@ class Inventory:
         
         self.inventory_df["SEG_ultimate_to_yield_ductility"] = [
             (
-                nbcc.estimate_SEG_ductility(lfrs=sfrs[0], number_of_stories=nst, Rd_2025=Rd_cur[0], Rd_historical=Rd_hist[0]),
-                nbcc.estimate_SEG_ductility(lfrs=sfrs[1], number_of_stories=nst, Rd_2025=Rd_cur[1], Rd_historical=Rd_hist[1]),
+                nbcc.estimate_SEG_ductility(lfrs=sfrs[0], number_of_stories=nst, code_level=cdlvl[0], Rd_2025=Rd_cur[0], Rd_historical=Rd_hist[0]),
+                nbcc.estimate_SEG_ductility(lfrs=sfrs[1], number_of_stories=nst, code_level=cdlvl[1], Rd_2025=Rd_cur[1], Rd_historical=Rd_hist[1]),
             )
 
-            for sfrs, nst, Rd_cur, Rd_hist in zip(
+            for sfrs, nst, cdlvl, Rd_cur, Rd_hist in zip(
                 self.inventory_df['LFRS'], 
                 self.inventory_df['Floors Above Grade'],
+                self.inventory_df['code_level'],
                 self.inventory_df['Rd_2025'],
                 self.inventory_df['Rd_SEG'])]
 
         self.inventory_df["SEG_postcap_to_yield_ductility"] = [
             (
-                nbcc.estimate_SEG_postcap(lfrs=sfrs[0], number_of_stories=nst, Rd_2025=Rd_cur[0], Rd_historical=Rd_hist[0]),
-                nbcc.estimate_SEG_postcap(lfrs=sfrs[1], number_of_stories=nst, Rd_2025=Rd_cur[1], Rd_historical=Rd_hist[1]),
+                nbcc.estimate_SEG_postcap(lfrs=sfrs[0], number_of_stories=nst, code_level=cdlvl[0], Rd_2025=Rd_cur[0], Rd_historical=Rd_hist[0]),
+                nbcc.estimate_SEG_postcap(lfrs=sfrs[1], number_of_stories=nst, code_level=cdlvl[1], Rd_2025=Rd_cur[1], Rd_historical=Rd_hist[1]),
             )
 
-            for sfrs, nst, Rd_cur, Rd_hist in zip(
+            for sfrs, nst, cdlvl, Rd_cur, Rd_hist in zip(
                 self.inventory_df['LFRS'], 
                 self.inventory_df['Floors Above Grade'],
+                self.inventory_df['code_level'],
                 self.inventory_df['Rd_2025'],
                 self.inventory_df['Rd_SEG'])]
 
