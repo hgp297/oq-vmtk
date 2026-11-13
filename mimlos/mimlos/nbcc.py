@@ -3815,7 +3815,7 @@ ROOF_FLOOR_WEIGHT_SEG_2025 = {
     '76mm Steel Deck with 90mm Concrete Topping':   2.8,
 }
 
-def get_SEG_ductility():
+def get_p695_ductility():
     '''
     use the following to get a 2025 value
     
@@ -4133,7 +4133,7 @@ def get_SEG_ductility():
     },
     index=['d_peak', 'e_plateau', 'c_residual'], dtype=float)
 
-SEG_BASE_POST_PEAK_PARAMS = get_SEG_ductility()
+SEG_BASE_POST_PEAK_PARAMS = get_p695_ductility()
 
 
 def get_p695_overstrength():
@@ -4216,7 +4216,7 @@ def get_p695_overstrength():
     iw_omega = np.array([1/0.8, 1/0.8, 1/0.6, 1/0.8, 1/0.8, 1/0.9, 1/0.85, 1/0.95, 1/0.9, 1/0.9, 1/0.8, 1/0.9, 1/0.6, 1/0.8, 1/0.75])*1.5
 
 
-    return {
+    omega_dict =  {
         "WLF-P9":   np.mean(wlfp9_omega),
         "WLF":      np.mean(wlf_omega),
         "WPB":      np.mean(wpb_omega),
@@ -4226,7 +4226,7 @@ def get_p695_overstrength():
         "SBFL":     np.mean(sbfl_omega),
         "SBFM":     np.mean(sbfm_omega),
         "SBFH":     np.mean(sbfh_omega),
-        "SLF":      np.mean(smfl_omega),
+        "SLF":      np.mean(cfs2_omega),
         "SCWL":     np.mean(cswl_omega),
         "SCWM":     np.mean(cswm_omega),
         "SCWH":     np.mean(cswh_omega),
@@ -4265,5 +4265,7 @@ def get_p695_overstrength():
         "CFS1H":    np.mean(cfs1_omega),
         "CFS2":     np.mean(cfs2_omega),
         }
+
+    return {k: np.minimum(v, 3.0) for k, v in omega_dict.items()}
 
 P695_BASE_OVERSTRENGTH_PARAMS = get_p695_overstrength()
