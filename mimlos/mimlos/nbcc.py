@@ -3600,13 +3600,13 @@ def estimate_SEG_postcap(lfrs, number_of_stories, code_level, Rd_2025, Rd_histor
     base_postcap = SEG_BASE_POST_PEAK_PARAMS.loc['e_plateau', lfrsh]
     # period_adjustment_factor = (Rd_historical - 0.9) / (Rd_2025 - 0.9)
 
-    ductility_level = DUCTILITY_LOOKUP_TABLE.loc[code_level, lfrs]
-    high_code_ductility = DUCTILITY_LOOKUP_TABLE.loc['high-code', lfrs]
-    code_era_Rd = R_D_TABLE(lfrs, ductility_level=ductility_level)
-    high_code_Rd = R_D_TABLE(lfrs, ductility_level=high_code_ductility)
-    period_adjustment_factor = code_era_Rd/high_code_Rd
+    # ductility_level = DUCTILITY_LOOKUP_TABLE.loc[code_level, lfrs]
+    # high_code_ductility = DUCTILITY_LOOKUP_TABLE.loc['high-code', lfrs]
+    # code_era_Rd = R_D_TABLE(lfrs, ductility_level=ductility_level)
+    # high_code_Rd = R_D_TABLE(lfrs, ductility_level=high_code_ductility)
+    # period_adjustment_factor = code_era_Rd/high_code_Rd
 
-    # period_adjustment_factor = 1.0
+    period_adjustment_factor = 1.0
 
     return np.maximum(base_postcap * period_adjustment_factor, 1.1)
 

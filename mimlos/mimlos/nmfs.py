@@ -240,8 +240,9 @@ def _shear_ductile_steel(Vy, Vp, c, uy=None, uu=None):
 
     # extend the residual regime out to 10% drift
 
-    # return np.column_stack([Vp, Vp, 0.8*Vp, c * Vp])
-    return np.column_stack([Vp, Vp, c * Vp, np.zeros_like(Vp)])
+    
+    return np.column_stack([Vp, Vp, c * Vp, 0.1*Vp])
+    # return np.column_stack([Vp, Vp, c * Vp, np.zeros_like(Vp)])
 
 def _drift_ductile_steel(uy, up, uu, upc, Vy, Vp, c=None):
     '''EPP-style eff_yield_peak-peak-ultimate model'''
