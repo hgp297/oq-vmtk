@@ -3918,7 +3918,7 @@ def get_p695_ductility():
     # these are typical n values for different shapes at average slenderness
 
     # the bump calibrates to SRG 3rd edition values
-    sbfe_source = 12.0*2.5
+    sbfe_source = 12.0*1.5
     sbfc_source = 0.6
     # mid and high-rises, use HAZUS ratio
 
