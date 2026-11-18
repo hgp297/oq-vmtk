@@ -3862,7 +3862,7 @@ def get_p695_ductility():
     # wd_source = np.mean([4.0, 2.6, 3.1, 2.3, 2.0, 3.6, 3.6, 3.5, 4.6, 5.0, 4.4, 5.7, 5.7, 4.4, 3.8, 5.0])
     we_source = np.mean(np.array([10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 8.0, 4.0])/0.75)
     # we_source = np.mean([5.0, 3.6, 4.0, 3.0, 2.5, 4.0, 4.0, 4.0, 5.0, 6.0, 5.0, 6.3, 6.3, 5.0, 4.0, 9.0])
-    wc_source = np.mean([0.3, 0.2, 0.2, 0.2, 0.2, 0.3, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.855])
+    wc_source = np.mean([0.3, 0.2, 0.2, 0.2, 0.2, 0.3, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2])
 
     ########## steel moment frame
 
@@ -3942,7 +3942,7 @@ def get_p695_ductility():
     # higher rises, apply the ratio on higher h/b ratios
     cfs1d_source = np.mean(cfs1_mu)
     # cfs1d_source = np.mean([3.3, 4.4, 3.7, 3.3, 3.9, 6.2, 3.0])
-    cfs1e_source = np.mean([5.0, 7.5, 5.5, 5.0, 9.2, 14.8, 4.9])
+    cfs1e_source = np.mean([4.0, 6.5, 4.5, 4.0, 8.2, 13.8, 3.9])
     cfs1c_source = np.mean([0.3, 0.3, 0.3, 0.3, 0.6, 0.6, 0.4, 0.2])
     # higher rise
     # d & e: 0.75, c: 1.67
@@ -3954,7 +3954,7 @@ def get_p695_ductility():
                         6.00, 28.6, 13.5, 6.60, 7.20, 28.6, 6.90])
     cfs2d_source = np.mean(cfs2_mu)
     # cfs2d_source = np.mean([7.9, 10.2, 3.3])
-    cfs2e_source = np.mean([9.4, 11.1, 6.8])
+    cfs2e_source = np.mean([8.4, 10.1, 5.8])
     cfs2c_source = np.mean([0.8, 0.6, 0.9])
 
     ########### concrete moment frames

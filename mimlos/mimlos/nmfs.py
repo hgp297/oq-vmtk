@@ -265,11 +265,14 @@ def _drift_ductile_steel(uy, up, uu, upc, Vy, Vp, c=None):
 
 def _shear_cfs(Vy, Vp, c, uy=None, uu=None):
     '''yield-peak-ultimate model'''
-    return np.column_stack([Vy, Vp, 0.8*Vp, c * Vp])
+    # return np.column_stack([Vy, Vp, 0.8*Vp, c * Vp])
+    return np.column_stack([Vy, Vp, c * Vp, c*Vp])
 
 def _drift_cfs(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     '''yield-peak-ultimate model'''
-    return np.column_stack([uy, 0.5*(uy + uu), uu, upc])
+    upc_eff = np.maximum(upc, 1.1*uu)
+    # return np.column_stack([uy, 0.5*(uy + uu), uu, upc_eff])
+    return np.column_stack([uy, 0.5*(uy + uu), upc_eff, 1.5*upc_eff])
 
 
 def _shear_ductile_cmf(Vy, Vp, c, uy=None, uu=None):
@@ -308,7 +311,7 @@ def _drift_wood(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     # FEMA mu relates 0.8V point to yield point
     # back calculate the beginning of the decline using the residual point and the 0.8V point
     up_eff = uu_eff - 0.2*(upc_eff - uu_eff)/(0.8-c)
-    return np.column_stack([uy_eff, up_eff, upc_eff, np.ones_like(upc)*0.10])
+    return np.column_stack([uy_eff, uu_eff, upc_eff, np.ones_like(upc)*0.10])
     
     # return np.column_stack([uy, uu, upc, np.ones_like(upc)*0.10])
     # return np.column_stack([uy, 0.5*(uy + uu), uu, upc])
@@ -327,7 +330,7 @@ def _drift_wpb(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     # FEMA mu relates 0.8V point to yield point
     # back calculate the beginning of the decline using the residual point and the 0.8V point
     up_eff = uu_eff - 0.2*(upc_eff - uu_eff)/(0.8-c)
-    return np.column_stack([uy_eff, up_eff, 2*upc_eff, np.ones_like(upc)*0.10])
+    return np.column_stack([uy_eff, uu_eff, 2*upc_eff, np.ones_like(upc)*0.10])
     # '''Compared to wlf, allow more post-cap ductility'''
     # return np.column_stack([uy, uu, upc, np.ones_like(upc)*0.10])
     # return np.column_stack([uy, 0.5*(uy + uu), uu, 2*uu])
@@ -377,7 +380,7 @@ DEFAULT_BUILDER = CurveBuilder(_shear_default, _drift_default)
 CAPACITY_BUILDERS = {
     "WLF": CurveBuilder(_shear_wood, _drift_wood),
     "WLF-P9": CurveBuilder(_shear_wood, _drift_wood),
-    "WPB": CurveBuilder(_shear_wood, _drift_wpb),
+    "WPB": CurveBuilder(_shear_wood, _drift_wood),
     "SMF": CurveBuilder(_shear_ductile_steel, _drift_ductile_steel),
     "SBF": CurveBuilder(_shear_ductile_steel, _drift_ductile_steel),
     "SLF": CurveBuilder(_shear_cfs, _drift_cfs),
