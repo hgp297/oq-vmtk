@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from . import nbcc
 from openquake.vmtk.units import units
-from . import hazus
+from . import ductility
 from . import nmfs
 
 DESIGN_HAZARD_PATH = Path(__file__).resolve().parent / "data" / "hazard" / "design"
@@ -645,7 +645,7 @@ class Inventory:
 
         
     # TODO: rename this and update documentation (no longer Hazus)
-    def determine_hazus_parameters(self):
+    def determine_ductility_parameters(self):
         '''
         Returns HAZUS parameters
 
@@ -666,8 +666,8 @@ class Inventory:
         lfrs_ew = self.inventory_df["Seismic Force Resisting System in the East-West Direction"]
 
         # determine FEMA/Hazus typology
-        fema_ns_stem = lfrs_ns.map(hazus.SEG_TO_FEMA_TYPOLOGY)
-        fema_ew_stem = lfrs_ew.map(hazus.SEG_TO_FEMA_TYPOLOGY)
+        fema_ns_stem = lfrs_ns.map(ductility.SEG_TO_FEMA_TYPOLOGY)
+        fema_ew_stem = lfrs_ew.map(ductility.SEG_TO_FEMA_TYPOLOGY)
 
         height_conditions = [
             (self.inventory_df['Floors Above Grade'] < 4),
@@ -694,8 +694,8 @@ class Inventory:
         # map hazus parameters
         self.inventory_df["hazus_Cs_design_strength"] = [
             (
-                hazus.HAZUS_DESIGN_STRENGTH_TABLE.loc[code[0], lfrs_ns],
-                hazus.HAZUS_DESIGN_STRENGTH_TABLE.loc[code[1], lfrs_ew],
+                ductility.HAZUS_DESIGN_STRENGTH_TABLE.loc[code[0], lfrs_ns],
+                ductility.HAZUS_DESIGN_STRENGTH_TABLE.loc[code[1], lfrs_ew],
             )
             for code, lfrs_ns, lfrs_ew
             in zip(self.inventory_df["code_level"], 
@@ -705,8 +705,8 @@ class Inventory:
 
         self.inventory_df["hazus_Omega_y_yield_overstrength"] = [
             (
-                hazus.HAZUS_PUSHOVER_TABLE.loc["gamma", lfrs_ns],
-                hazus.HAZUS_PUSHOVER_TABLE.loc["gamma", lfrs_ew],
+                ductility.HAZUS_PUSHOVER_TABLE.loc["gamma", lfrs_ns],
+                ductility.HAZUS_PUSHOVER_TABLE.loc["gamma", lfrs_ew],
             )
             for lfrs_ns, lfrs_ew
             in zip(self.inventory_df["FEMA_lfrs_ns"], 
@@ -716,8 +716,8 @@ class Inventory:
 
         self.inventory_df["hazus_Omega_p_peak_overstrength"] = [
             (
-                hazus.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ns],
-                hazus.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ew],
+                ductility.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ns],
+                ductility.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ew],
             )
             for lfrs_ns, lfrs_ew
             in zip(self.inventory_df["FEMA_lfrs_ns"], 
@@ -726,8 +726,8 @@ class Inventory:
 
         self.inventory_df["hazus_mu_ductility"] = [
             (
-                hazus.HAZUS_DUCTILITY_TABLE.loc[code[0], lfrs_ns],
-                hazus.HAZUS_DUCTILITY_TABLE.loc[code[1], lfrs_ew],
+                ductility.HAZUS_DUCTILITY_TABLE.loc[code[0], lfrs_ns],
+                ductility.HAZUS_DUCTILITY_TABLE.loc[code[1], lfrs_ew],
             )
             for code, lfrs_ns, lfrs_ew
             in zip(self.inventory_df["code_level"], 
@@ -739,8 +739,8 @@ class Inventory:
 
         self.inventory_df["hazus_mu_times_Omega_p"] = [
             (
-                hazus.HAZUS_DUCTILITY_TABLE.loc[code[0], lfrs_ns]*hazus.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ns],
-                hazus.HAZUS_DUCTILITY_TABLE.loc[code[1], lfrs_ew]*hazus.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ew],
+                ductility.HAZUS_DUCTILITY_TABLE.loc[code[0], lfrs_ns]*ductility.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ns],
+                ductility.HAZUS_DUCTILITY_TABLE.loc[code[1], lfrs_ew]*ductility.HAZUS_PUSHOVER_TABLE.loc["lambda", lfrs_ew],
             )
             for code, lfrs_ns, lfrs_ew
             in zip(self.inventory_df["code_level"], 
@@ -810,8 +810,8 @@ class Inventory:
 
         self.inventory_df["SEG_peak_to_yield_overstrength"] = [
             (
-                nbcc.estimate_SEG_peak_to_yield_overstrength(lfrs=sfrs[0], number_of_stories=nst, Ro=Ro_hist[0]),
-                nbcc.estimate_SEG_peak_to_yield_overstrength(lfrs=sfrs[1], number_of_stories=nst, Ro=Ro_hist[1]),
+                ductility.estimate_SEG_peak_to_yield_overstrength(lfrs=sfrs[0], number_of_stories=nst, Ro=Ro_hist[0]),
+                ductility.estimate_SEG_peak_to_yield_overstrength(lfrs=sfrs[1], number_of_stories=nst, Ro=Ro_hist[1]),
             )
 
             for sfrs, nst, Ro_hist in zip(
@@ -822,8 +822,8 @@ class Inventory:
         
         self.inventory_df["SEG_ultimate_to_yield_ductility"] = [
             (
-                nbcc.estimate_SEG_ductility(lfrs=sfrs[0], number_of_stories=nst, code_level=cdlvl[0], Rd_2025=Rd_cur[0], Rd_historical=Rd_hist[0]),
-                nbcc.estimate_SEG_ductility(lfrs=sfrs[1], number_of_stories=nst, code_level=cdlvl[1], Rd_2025=Rd_cur[1], Rd_historical=Rd_hist[1]),
+                ductility.estimate_SEG_ductility(lfrs=sfrs[0], number_of_stories=nst, code_level=cdlvl[0], Rd_2025=Rd_cur[0], Rd_historical=Rd_hist[0]),
+                ductility.estimate_SEG_ductility(lfrs=sfrs[1], number_of_stories=nst, code_level=cdlvl[1], Rd_2025=Rd_cur[1], Rd_historical=Rd_hist[1]),
             )
 
             for sfrs, nst, cdlvl, Rd_cur, Rd_hist in zip(
@@ -835,8 +835,8 @@ class Inventory:
 
         self.inventory_df["SEG_postcap_to_yield_ductility"] = [
             (
-                nbcc.estimate_SEG_postcap(lfrs=sfrs[0], number_of_stories=nst, code_level=cdlvl[0], Rd_2025=Rd_cur[0], Rd_historical=Rd_hist[0]),
-                nbcc.estimate_SEG_postcap(lfrs=sfrs[1], number_of_stories=nst, code_level=cdlvl[1], Rd_2025=Rd_cur[1], Rd_historical=Rd_hist[1]),
+                ductility.estimate_SEG_postcap(lfrs=sfrs[0], number_of_stories=nst, code_level=cdlvl[0], Rd_2025=Rd_cur[0], Rd_historical=Rd_hist[0]),
+                ductility.estimate_SEG_postcap(lfrs=sfrs[1], number_of_stories=nst, code_level=cdlvl[1], Rd_2025=Rd_cur[1], Rd_historical=Rd_hist[1]),
             )
 
             for sfrs, nst, cdlvl, Rd_cur, Rd_hist in zip(
@@ -848,8 +848,8 @@ class Inventory:
 
         self.inventory_df["SEG_residual_strength_ratio"] = [
                 (
-                    nbcc.estimate_SEG_residual(lfrs=sfrs[0], number_of_stories=nst),
-                    nbcc.estimate_SEG_residual(lfrs=sfrs[1], number_of_stories=nst),
+                    ductility.estimate_SEG_residual(lfrs=sfrs[0], number_of_stories=nst),
+                    ductility.estimate_SEG_residual(lfrs=sfrs[1], number_of_stories=nst),
                 )
     
                 for sfrs, nst in zip(

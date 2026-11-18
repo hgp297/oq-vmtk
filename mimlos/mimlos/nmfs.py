@@ -257,7 +257,8 @@ def _drift_ductile_steel(uy, up, uu, upc, Vy, Vp, c=None):
     mu_u = np.maximum(mu_u, 2.0)
     uu_eff = mu_u * uy_eff
     mu_pc = upc/uy
-    upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
+    # upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
+    upc_eff = mu_pc * uy_eff
     
     # extend the residual regime out to 10% drift
     # return np.column_stack([uy_eff, 0.5*(uy_eff + uu_eff), uu_eff, np.ones_like(upc)*0.10])
@@ -265,14 +266,15 @@ def _drift_ductile_steel(uy, up, uu, upc, Vy, Vp, c=None):
 
 def _shear_cfs(Vy, Vp, c, uy=None, uu=None):
     '''yield-peak-ultimate model'''
-    # return np.column_stack([Vy, Vp, 0.8*Vp, c * Vp])
-    return np.column_stack([Vy, Vp, c * Vp, c*Vp])
+    return np.column_stack([Vy, Vp, 0.8*Vp, c * Vp])
+    # return np.column_stack([Vy, Vp, c * Vp, c*Vp])
 
 def _drift_cfs(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     '''yield-peak-ultimate model'''
-    upc_eff = np.maximum(upc, 1.1*uu)
+    upc_eff = np.maximum(upc, 1.01*uu)
+    return np.column_stack([uy, 0.5*(uy + uu), uu, upc_eff])
     # return np.column_stack([uy, 0.5*(uy + uu), uu, upc_eff])
-    return np.column_stack([uy, 0.5*(uy + uu), upc_eff, 1.5*upc_eff])
+    # return np.column_stack([uy, 0.5*(uy + uu), upc_eff, 1.2*upc_eff])
 
 
 def _shear_ductile_cmf(Vy, Vp, c, uy=None, uu=None):
@@ -286,7 +288,7 @@ def _drift_ductile_cmf(uy, up, uu, upc, Vy, Vp, c=None):
     # uu_eff = mu_u * uy_eff
     uu_eff = uu
     mu_pc = upc/uy
-    upc_eff = np.maximum(mu_pc * uy_eff, 1.2*uu_eff)
+    upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
     return np.column_stack([uy_eff, 0.5*(uy_eff + uu_eff), uu_eff, upc_eff])
 
 
@@ -306,16 +308,16 @@ def _drift_wood(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     mu_u = uu/uy
     uu_eff = mu_u * uy_eff
     mu_pc = upc/uy
-    upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
+    # upc_eff = np.maximum(mu_pc * uy_eff, 1.0*uu_eff)
+    upc_eff = mu_pc * uy_eff
 
-    # FEMA mu relates 0.8V point to yield point
-    # back calculate the beginning of the decline using the residual point and the 0.8V point
-    up_eff = uu_eff - 0.2*(upc_eff - uu_eff)/(0.8-c)
     return np.column_stack([uy_eff, uu_eff, upc_eff, np.ones_like(upc)*0.10])
-    
-    # return np.column_stack([uy, uu, upc, np.ones_like(upc)*0.10])
-    # return np.column_stack([uy, 0.5*(uy + uu), uu, upc])
 
+    # # FEMA mu relates 0.8V point to yield point
+    # # back calculate the beginning of the decline using the residual point and the 0.8V point
+    # up_eff = uu_eff - 0.2*(upc_eff - uu_eff)/(0.8-c)
+    # return np.column_stack([uy_eff, up, upc_eff, np.ones_like(upc)*0.10])
+    
 def _drift_wpb(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     '''
     EPP-style eff_yield_peak-peak-ultimate model
@@ -343,7 +345,9 @@ def _drift_sw(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     '''shear-wall yield-peak-dropoff model'''
     x = 0.15*uu/(0.2*Vp)*(1-c)*Vp
     uplateau = np.maximum(0.85*uu, uy) + x
-    return np.column_stack([uy, np.maximum(0.85*uu, uy), uplateau, 3*uplateau])
+    upc_eff = np.maximum(1.01*uu, upc)
+    # return np.column_stack([uy, np.maximum(0.85*uu, uy), uplateau, 3*uplateau])
+    return np.column_stack([uy, uu, upc_eff, 3*upc_eff])
 
 def _shear_masonry(Vy, Vp, c, uy=None, uu=None):
     '''shear-wall yield-peak-dropoff model'''
