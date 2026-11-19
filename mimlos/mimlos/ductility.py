@@ -124,7 +124,7 @@ def get_p695_ductility():
     # the bump calibrates to SRG 3rd edition values
     smfe_source = 12.0*0.5
     smfc_source = np.mean(np.array([0.6, 0.2]))
-    # mid and high-rises, use HAZUS ratio
+    # mid and high-rises, use HAZUS ratio (not used since source has height typologies)
 
     ########### steel braced frames
     # (excluding brbfs)
@@ -224,13 +224,22 @@ def get_p695_ductility():
     # Visnjic (2015) shows this is true up until ~12 stories
     # at 20 stories it drops to about 0.6*beam chord rotation
 
-    # for the actual parameter, can use SEG, but that requires dimensions
-    # in aggregate, we'll use NIST GCR 17-917-45, which reports the 
-    # ACI 369 (SEG) value as being 0.02 to 0.025 radians. We take the upper
-    # value as the ductile peak plastic rotation.
+    # for the actual parameter, can use SEG modelling parameters 
+    # for reinforced concrete beam-column joints (plastic rotation angle)
+    # take the ratio of point b (end of residual) to point a (start of capacity loss)
+
+    cmfa_source = np.array([0.015, 0.015, 0.015, 0.015, 0.005, 0.005, 0.005, 0.005,
+                            0.01, 0.01, 0.01, 0.01, 0.005, 0.005])
+    cmfb_source = np.array([0.03, 0.03, 0.025, 0.20, 0.20, 0.015, 0.015, 0.015,
+                            0.02, 0.015, 0.02, 0.015, 0.01, 0.01])
+    cmf_b_to_a_ratio = np.mean(np.divide(cmfb_source, cmfa_source))
+    
     cmfe_source = 0.05/0.004
     cmfc_source = 0.2
     # normalize against a presumed yield of 0.004
+
+    # removing this bump because the sources already account for height archetypes
+    # bump is from Visnjic (2015) 
     # low rises get 1.2 bump
     # mid rises 1.0
     # high rises have 0.6 penalty
@@ -340,18 +349,18 @@ def get_p695_ductility():
         'SMFM' : [smfdm_source, steel_b_to_a_ratio*smfdm_source, smfc_source],
         'SMFH' : [smfdh_source, steel_b_to_a_ratio*smfdh_source, smfc_source],
         'SBFL' : [sbfdl_source, sbfe_source, sbfc_source],
-        'SBFM' : [sbfdm_source, 0.66*sbfe_source, sbfc_source],
-        'SBFH' : [sbfdh_source, 0.5*sbfe_source, sbfc_source],
+        'SBFM' : [sbfdm_source, sbfe_source, sbfc_source],
+        'SBFH' : [sbfdh_source, sbfe_source, sbfc_source],
         'SLF' : [cfs2d_source, cfs2_b_to_a_ratio*cfs2d_source, cfs2c_source],
-        'SCWL' : [cswmd_source, cswfd_ratio*cswmd_source, cswfc_source], # use flexure ctrl shear wall
+        'SCWL' : [cswld_source, cswsd_ratio*cswld_source, cswfc_source], # use flexure ctrl shear wall
         'SCWM' : [cswmd_source, cswfd_ratio*cswmd_source, cswfc_source], # use flexure ctrl shear wall
         'SCWH' : [cswhd_source, cswfd_ratio*cswhd_source, cswfc_source], # use flexure ctrl shear wall
         'SIWL' : [iwd_source, iwe_source, iwc_source],
         'SIWM' : [0.66*iwd_source, 0.66*iwe_source, iwc_source],
         'SIWH' : [0.5*iwd_source, 0.5*iwe_source, iwc_source],
-        'CMFL' : [cmfdl_source, 1.2*cmfe_source, cmfc_source],
-        'CMFM' : [cmfdm_source, cmfe_source, cmfc_source],
-        'CMFH' : [cmfdh_source, 0.66*cmfe_source, cmfc_source],
+        'CMFL' : [cmfdl_source, cmf_b_to_a_ratio*cmfdl_source, cmfc_source],
+        'CMFM' : [cmfdm_source, cmf_b_to_a_ratio*cmfdm_source, cmfc_source],
+        'CMFH' : [cmfdh_source, cmf_b_to_a_ratio*cmfdh_source, cmfc_source],
         'CSWL' : [cswld_source, cswsd_ratio*cswld_source, cswsc_source], # shear control
         'CSWM' : [cswmd_source, cswfd_ratio*cswmd_source, cswfc_source], # flexure control
         'CSWH' : [cswhd_source, cswfd_ratio*cswhd_source, cswfc_source], # flexure control
@@ -364,9 +373,9 @@ def get_p695_ductility():
         'PCF1L' : [0.5*cswld_source, 0.5*cswsd_ratio*cswld_source, cswsc_source], # shear control, assume CSW
         'PCF1M' : [0.5*cswmd_source, 0.5*cswfd_ratio*cswmd_source, cswfc_source], # flexure control, assume CSW
         'PCF1H' : [0.5*cswhd_source, 0.5*cswfd_ratio*cswhd_source, cswfc_source], # flexure control, assume CSW
-        'PCF2L' : [cmfdl_source, 1.2*cmfe_source, cmfc_source], # assume CMF
-        'PCF2M' : [cmfdm_source, cmfe_source, cmfc_source],     # assume CMF
-        'PCF2H' : [cmfdh_source, 0.66*cmfe_source, cmfc_source], # assume CMF
+        'PCF2L' : [cmfdl_source, cmf_b_to_a_ratio*cmfdl_source, cmfc_source], # assume CMF
+        'PCF2M' : [cmfdm_source, cmf_b_to_a_ratio*cmfdm_source, cmfc_source],     # assume CMF
+        'PCF2H' : [cmfdh_source, cmf_b_to_a_ratio*cmfdh_source, cmfc_source], # assume CMF
         'RMLL'  : [rmld_source, rme_source, rmc_source],
         'RMLM'  : [rmhd_source, 0.66*rme_source, rmc_source],
         'RMLH'  : [rmhd_source, 0.5*rme_source, rmc_source],

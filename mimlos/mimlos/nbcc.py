@@ -2667,7 +2667,7 @@ def determine_period_post_1995(lfrs, h_n):
     # are reliably predicted by the MF equation as well
     if lfrs in ['SMF', 'SIW']:
         T_1 =  0.085*(h_n**0.75)
-    elif lfrs in ['CMF', 'CIW']:
+    elif lfrs in ['CMF', 'CIW', 'PCF2']:
         T_1 =   0.075*(h_n**0.75)
     elif lfrs == 'SBF':
         T_1 =   0.025*h_n
