@@ -642,6 +642,23 @@ class Inventory:
         code_level_ns = code_lookup(lfrs_ns)
         code_level_ew = code_lookup(lfrs_ew)
         self.inventory_df['code_level'] = list(zip(code_level_ns, code_level_ew))
+        ductility_ns = [
+            ductility.DUCTILITY_LOOKUP_TABLE.loc[code_ns, lfrs_ns]
+            for (lfrs_ns, _), (code_ns, _) in zip(
+                self.inventory_df["LFRS"],
+                self.inventory_df["code_level"],
+            )
+        ]
+
+        ductility_ew = [
+            ductility.DUCTILITY_LOOKUP_TABLE.loc[code_ew, lfrs_ew]
+            for (_, lfrs_ew), (_, code_ew) in zip(
+                self.inventory_df["LFRS"],
+                self.inventory_df["code_level"],
+            )
+        ]
+
+        self.inventory_df["ductility_level"] = list(zip(ductility_ns, ductility_ew))
 
         
     # TODO: rename this and update documentation (no longer Hazus)

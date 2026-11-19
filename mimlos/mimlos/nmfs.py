@@ -257,8 +257,8 @@ def _drift_ductile_steel(uy, up, uu, upc, Vy, Vp, c=None):
     mu_u = np.maximum(mu_u, 2.0)
     uu_eff = mu_u * uy_eff
     mu_pc = upc/uy
-    # upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
-    upc_eff = mu_pc * uy_eff
+    upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
+    # upc_eff = mu_pc * uy_eff
     
     # extend the residual regime out to 10% drift
     # return np.column_stack([uy_eff, 0.5*(uy_eff + uu_eff), uu_eff, np.ones_like(upc)*0.10])
@@ -289,7 +289,9 @@ def _drift_ductile_cmf(uy, up, uu, upc, Vy, Vp, c=None):
     uu_eff = uu
     mu_pc = upc/uy
     upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
-    return np.column_stack([uy_eff, 0.5*(uy_eff + uu_eff), uu_eff, upc_eff])
+    up_eff = np.maximum(uu - 0.2*(upc_eff - uu)/(0.8-c), 0.5*(uy_eff + uu_eff))
+    return np.column_stack([uy_eff, up_eff, uu_eff, upc_eff])
+    # return np.column_stack([uy_eff, 0.5*(uy_eff + uu_eff), uu_eff, upc_eff])
 
 
 
@@ -343,11 +345,19 @@ def _shear_sw(Vy, Vp, c, uy=None, uu=None):
 
 def _drift_sw(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     '''shear-wall yield-peak-dropoff model'''
-    x = 0.15*uu/(0.2*Vp)*(1-c)*Vp
-    uplateau = np.maximum(0.85*uu, uy) + x
-    upc_eff = np.maximum(1.01*uu, upc)
+
+
+    # upc_eff = np.maximum(1.01*uu, upc)
+    upc_eff = upc
+
+    # if uu is at 0.8V, back-calculate u_p at 1.0V, cap at 0.85*uu
+    up_eff = np.maximum(uu - 0.2*(upc_eff - uu)/(0.8-c), 0.85*uu)
+    return np.column_stack([uy, up_eff, upc_eff, 1.2*upc_eff])
+
+    # x = 0.15*uu/(0.2*Vp)*(1-c)*Vp
+    # uplateau = np.maximum(0.85*uu, uy) + x
     # return np.column_stack([uy, np.maximum(0.85*uu, uy), uplateau, 3*uplateau])
-    return np.column_stack([uy, uu, upc_eff, 3*upc_eff])
+    # return np.column_stack([uy, uu, upc_eff, 3*upc_eff])
 
 def _shear_masonry(Vy, Vp, c, uy=None, uu=None):
     '''shear-wall yield-peak-dropoff model'''

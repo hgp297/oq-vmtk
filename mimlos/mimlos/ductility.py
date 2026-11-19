@@ -263,9 +263,12 @@ def get_p695_ductility():
     # shear controlled walls
     cswsd_source = np.mean([0.01, 0.0075])/0.0025
     cswse_source = np.mean([0.02, 0.01])/0.0025 
-    # steep drop off
-    cswsd_ratio = 1.0
+    # steep drop off, but not completely vertical
+    cswsd_ratio = 1.1
     cswsc_source = np.mean([0.20, 0.0])
+
+    ########### precast
+    #  SEG recommends reduction by a factor of 1/2
 
     ################## unreinforced masonry
     # sourced from Magenes & Calvi (1997)
@@ -340,9 +343,9 @@ def get_p695_ductility():
         'SBFM' : [sbfdm_source, 0.66*sbfe_source, sbfc_source],
         'SBFH' : [sbfdh_source, 0.5*sbfe_source, sbfc_source],
         'SLF' : [cfs2d_source, cfs2_b_to_a_ratio*cfs2d_source, cfs2c_source],
-        'SCWL' : [cswld_source, cswfd_ratio*cswmd_source, cswfc_source], # use flexure ctrl shear wall
-        'SCWM' : [cswmd_source, 0.66*cswfd_ratio*cswmd_source, cswfc_source], # use flexure ctrl shear wall
-        'SCWH' : [cswhd_source, 0.5*cswfd_ratio*cswhd_source, cswfc_source], # use flexure ctrl shear wall
+        'SCWL' : [cswmd_source, cswfd_ratio*cswmd_source, cswfc_source], # use flexure ctrl shear wall
+        'SCWM' : [cswmd_source, cswfd_ratio*cswmd_source, cswfc_source], # use flexure ctrl shear wall
+        'SCWH' : [cswhd_source, cswfd_ratio*cswhd_source, cswfc_source], # use flexure ctrl shear wall
         'SIWL' : [iwd_source, iwe_source, iwc_source],
         'SIWM' : [0.66*iwd_source, 0.66*iwe_source, iwc_source],
         'SIWH' : [0.5*iwd_source, 0.5*iwe_source, iwc_source],
@@ -355,12 +358,12 @@ def get_p695_ductility():
         'CIWL' : [iwd_source, iwe_source, iwc_source],
         'CIWM' : [0.66*iwd_source, 0.66*iwe_source, iwc_source],
         'CIWH' : [0.5*iwd_source, 0.5*iwe_source, iwc_source],
-        'PCWL' : [cswld_source, cswsd_ratio*cswld_source, cswsc_source], # shear control, assume CSW
-        'PCWM' : [cswmd_source, cswfd_ratio*cswmd_source, cswfc_source], # flexure control, assume CSW
-        'PCWH' : [cswhd_source, cswfd_ratio*cswhd_source, cswfc_source], # flexure control, assume CSW
-        'PCF1L' : [cswld_source, cswsd_ratio*cswld_source, cswsc_source], # shear control, assume CSW
-        'PCF1M' : [cswmd_source, cswfd_ratio*cswmd_source, cswfc_source], # flexure control, assume CSW
-        'PCF1H' : [cswhd_source, cswfd_ratio*cswhd_source, cswfc_source], # flexure control, assume CSW
+        'PCWL' : [0.5*cswld_source, 0.5*cswsd_ratio*cswld_source, cswsc_source], # shear control, assume CSW
+        'PCWM' : [0.5*cswmd_source, 0.5*cswfd_ratio*cswmd_source, cswfc_source], # flexure control, assume CSW
+        'PCWH' : [0.5*cswhd_source, 0.5*cswfd_ratio*cswhd_source, cswfc_source], # flexure control, assume CSW
+        'PCF1L' : [0.5*cswld_source, 0.5*cswsd_ratio*cswld_source, cswsc_source], # shear control, assume CSW
+        'PCF1M' : [0.5*cswmd_source, 0.5*cswfd_ratio*cswmd_source, cswfc_source], # flexure control, assume CSW
+        'PCF1H' : [0.5*cswhd_source, 0.5*cswfd_ratio*cswhd_source, cswfc_source], # flexure control, assume CSW
         'PCF2L' : [cmfdl_source, 1.2*cmfe_source, cmfc_source], # assume CMF
         'PCF2M' : [cmfdm_source, cmfe_source, cmfc_source],     # assume CMF
         'PCF2H' : [cmfdh_source, 0.66*cmfe_source, cmfc_source], # assume CMF
