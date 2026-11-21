@@ -230,7 +230,7 @@ def get_p695_ductility():
 
     cmfa_source = np.array([0.015, 0.015, 0.015, 0.015, 0.005, 0.005, 0.005, 0.005,
                             0.01, 0.01, 0.01, 0.01, 0.005, 0.005])
-    cmfb_source = np.array([0.03, 0.03, 0.025, 0.20, 0.20, 0.015, 0.015, 0.015,
+    cmfb_source = np.array([0.03, 0.03, 0.025, 0.02, 0.02, 0.015, 0.015, 0.015,
                             0.02, 0.015, 0.02, 0.015, 0.01, 0.01])
     cmf_b_to_a_ratio = np.mean(np.divide(cmfb_source, cmfa_source))
     
@@ -297,21 +297,36 @@ def get_p695_ductility():
     # mainly focused on CIW as there are no SIW in database
     # also has anchors for yield drift 
 
-    iw_mu = np.array([2.3, 4.0, 4.5, 4.3, 4.3, 4.3, 2.0, 3.0, 1.5, 1.3, 5.0, 2.0, 3.5, 2.0, 1.1, 3.2, 1.4, 3.2, 2.3, 4.5, 3.6, 2, 4, 2.1, 4.0, 1.82, 1.80])
+    # aggregated sources
+    # Fiorato et al 1970, Zarnic and Tomazevic 1984
+    # Valiasis et al 1993, Durrani and Haidar 1996
+    # Mehrabi et al 1998, Calvi et al 2004
+    # Colangelo 2005, Karayannis et al 2005
+    # Combescure 2006, Huang et al 2006
+    # Kakaletsis and Karayannis 2008, D'Ayala 2009
+    
+    # table below is the mean from Kumar dissertation
+    iw_mu = np.array([3.1, 4.5, 4.3, 4.3, 4.3, 2.5, 1.5, 2.4, 2.6, 
+                      2.0, 2.4, 2.2, 2.3, 4.5, 3.6, 3.0, 3.1])
+    iwd_source = np.mean(iw_mu)
+
+
     # infill RM
     # use infilled frame and masonry infill 
     # includes ductile, both flexible and stiff panels
     # assume aspect ratio of 1.0
     # D point is taken as the onset of residual (1.6*peak)
-    iwd_source = np.mean(iw_mu)
     # iwd_source = np.mean([1.6*0.0037, 0.01])/0.0025
+    # below is mean from kumar dissertation
+    iw_e_to_d_ratio  = np.mean(np.array([1.7, 5.0, 4.0, 2.3, 1.9, 3.0, 2.4,
+                                 4.3, 2.0, 1.0]))
 
-    iwe_upc = np.array([np.mean([0.01])/0.0025,
-                           np.mean([2.3, 4.0])*np.mean([1.0, 2.1]),
-                           1.0, 4.3*4.0, 4.3*5.0, 2.5*np.mean([1.8, 2.8]), 1.5*1.9,
-                           np.mean([1.3, 5.0])*np.mean([1.5,5.3]), np.mean([2.0,3.5])*np.mean([1.7*3.0]), 
-                           1.0, 1.0, 1.0, 1.0, 2.3*4.3, 4.5*2, 1.0, 1.0, 1.0])
-    iwe_source = np.mean(iwe_upc)
+    # iwe_upc = np.array([np.mean([0.01])/0.0025,
+    #                        np.mean([2.3, 4.0])*np.mean([1.0, 2.1]),
+    #                        1.0, 4.3*4.0, 4.3*5.0, 2.5*np.mean([1.8, 2.8]), 1.5*1.9,
+    #                        np.mean([1.3, 5.0])*np.mean([1.5,5.3]), np.mean([2.0,3.5])*np.mean([1.7*3.0]), 
+    #                        1.0, 1.0, 1.0, 1.0, 2.3*4.3, 4.5*2, 1.0, 1.0, 1.0])
+    # iwe_source = np.mean(iwe_upc)
     iwc_source = np.mean([0.2, 0.75, 0.4, 0.4, 0.85, 0.45, 0.4, 0.4, 0.8, 0.39, 0.23])
 
     ############### reinforced masonry
@@ -355,18 +370,18 @@ def get_p695_ductility():
         'SCWL' : [cswld_source, cswsd_ratio*cswld_source, cswfc_source], # use flexure ctrl shear wall
         'SCWM' : [cswmd_source, cswfd_ratio*cswmd_source, cswfc_source], # use flexure ctrl shear wall
         'SCWH' : [cswhd_source, cswfd_ratio*cswhd_source, cswfc_source], # use flexure ctrl shear wall
-        'SIWL' : [iwd_source, iwe_source, iwc_source],
-        'SIWM' : [0.66*iwd_source, 0.66*iwe_source, iwc_source],
-        'SIWH' : [0.5*iwd_source, 0.5*iwe_source, iwc_source],
+        'SIWL' : [iwd_source, iw_e_to_d_ratio*iwd_source, iwc_source],
+        'SIWM' : [0.66*iwd_source, iw_e_to_d_ratio*0.66*iwd_source, iwc_source],
+        'SIWH' : [0.5*iwd_source, iw_e_to_d_ratio*0.5*iwd_source, iwc_source],
         'CMFL' : [cmfdl_source, cmf_b_to_a_ratio*cmfdl_source, cmfc_source],
         'CMFM' : [cmfdm_source, cmf_b_to_a_ratio*cmfdm_source, cmfc_source],
         'CMFH' : [cmfdh_source, cmf_b_to_a_ratio*cmfdh_source, cmfc_source],
         'CSWL' : [cswld_source, cswsd_ratio*cswld_source, cswsc_source], # shear control
         'CSWM' : [cswmd_source, cswfd_ratio*cswmd_source, cswfc_source], # flexure control
         'CSWH' : [cswhd_source, cswfd_ratio*cswhd_source, cswfc_source], # flexure control
-        'CIWL' : [iwd_source, iwe_source, iwc_source],
-        'CIWM' : [0.66*iwd_source, 0.66*iwe_source, iwc_source],
-        'CIWH' : [0.5*iwd_source, 0.5*iwe_source, iwc_source],
+        'CIWL' : [iwd_source, iw_e_to_d_ratio*iwd_source, iwc_source],
+        'CIWM' : [0.66*iwd_source, iw_e_to_d_ratio*0.66*iwd_source, iwc_source],
+        'CIWH' : [0.5*iwd_source, iw_e_to_d_ratio*0.5*iwd_source, iwc_source],
         'PCWL' : [0.5*cswld_source, 0.5*cswsd_ratio*cswld_source, cswsc_source], # shear control, assume CSW
         'PCWM' : [0.5*cswmd_source, 0.5*cswfd_ratio*cswmd_source, cswfc_source], # flexure control, assume CSW
         'PCWH' : [0.5*cswhd_source, 0.5*cswfd_ratio*cswhd_source, cswfc_source], # flexure control, assume CSW
@@ -476,8 +491,8 @@ def get_p695_overstrength():
     # capacity curve info from Kappos et al. (2005)
     urm_omega = np.array([0.328/0.320, 0.214/0.189, 0.158/0.135, 0.248/0.231, 0.164/0.135, 0.111/0.092, 0.204/0.184])
 
-    # Kumar et al. calculated these from yield. We multiply by Ro
-    iw_omega = np.array([1/0.8, 1/0.8, 1/0.6, 1/0.8, 1/0.8, 1/0.9, 1/0.85, 1/0.95, 1/0.9, 1/0.9, 1/0.8, 1/0.9, 1/0.6, 1/0.8, 1/0.75])*1.5
+    # Kumar et al. calculated these from yield. This is handled in estimate_SEG_peak_to_yield_overstrength
+    iw_omega = np.array([1/0.8, 1/0.8, 1/0.6, 1/0.8, 1/0.8, 1/0.9, 1/0.85, 1/0.95, 1/0.9, 1/0.9, 1/0.8, 1/0.9, 1/0.6, 1/0.8, 1/0.75])
 
 
     omega_dict =  {
@@ -558,7 +573,10 @@ def estimate_SEG_peak_to_yield_overstrength(lfrs, number_of_stories, Ro):
 
     p695_peak_to_design_Omega = P695_BASE_OVERSTRENGTH_PARAMS[lfrsh]
 
-    return np.maximum(p695_peak_to_design_Omega/Ro, 1.0)
+    if lfrs in ['CIW', 'SIW']:
+        return np.maximum(p695_peak_to_design_Omega, 1.0)
+    else:
+        return np.maximum(p695_peak_to_design_Omega/Ro, 1.0)
 
 def estimate_SEG_ductility(lfrs, number_of_stories, code_level, Rd_2025, Rd_historical):
     '''

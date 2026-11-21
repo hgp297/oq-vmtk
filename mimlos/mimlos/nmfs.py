@@ -285,8 +285,8 @@ def _drift_ductile_cmf(uy, up, uu, upc, Vy, Vp, c=None):
     '''EPP-style eff_yield_peak-peak-ultimate model'''
     uy_eff = Vp/Vy*uy
     mu_u = uu/uy
-    # uu_eff = mu_u * uy_eff
-    uu_eff = uu
+    uu_eff = mu_u * uy_eff
+    # uu_eff = uu
     mu_pc = upc/uy
     upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
     up_eff = np.maximum(uu - 0.2*(upc_eff - uu)/(0.8-c), 0.5*(uy_eff + uu_eff))
@@ -382,12 +382,12 @@ def _shear_iw(Vy, Vp, c, uy=None, uu=None):
     '''trilinear yield-peak-drop model'''
     # ensure that Vp does not exceed Vy/uy * uu
     Vp_eff = np.minimum(Vp, Vy/uy*uu)
-    return np.column_stack([Vy, Vp_eff, c * Vp_eff, np.zeros_like(Vp_eff)])
+    return np.column_stack([Vy, Vp_eff, c * Vp_eff, c * Vp_eff])
 
 def _drift_iw(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     '''trilinear yield-peak-drop model'''
     # steep dropoff replicates SRG's EPP-then-drop model
-    return np.column_stack([uy, uu, upc, 1.05*upc])
+    return np.column_stack([uy, uu, upc, 1.2*upc])
 
 DEFAULT_BUILDER = CurveBuilder(_shear_default, _drift_default)
 
