@@ -2746,7 +2746,7 @@ def determine_effective_period(lfrs, T_1, h_n, A_bldg, calibrate_to_yield=False)
     # TODO: these calibration make it so that yield drift is very 
     # sensitive to story height. Consider some amplification 
     # tied to empirical T1
-    if lfrs in ['SCW', 'SIW', 'CSW', 'CIW', 'PCW', 'PCF1', 'RML', 'RMC', 'URM']: 
+    if lfrs in ['SCW', 'SIW', 'CSW', 'CIW', 'PCW', 'PCF1', 'RML', 'RMC']: 
         # 1/0.3 multiplier calibrates to Arup and SRG studies
         T_eff = T_1
         T_secant = T_1*(1/0.3)**0.5
@@ -2754,6 +2754,10 @@ def determine_effective_period(lfrs, T_1, h_n, A_bldg, calibrate_to_yield=False)
         # 1/0.2 multiplier calibrates to Arup and SRG studies
         T_eff = T_1
         T_secant = T_1*(1/0.2)**0.5
+    elif lfrs in ['URM']:
+        # 1/0.2 calibrates to SRG and Magenes
+        T_eff = T_1
+        T_secant = T_1*(1/0.5)**0.5
     # smf and sbf lengthening evidenced in NIST GCR studies
     elif lfrs in ['SMF']:
         multiplier = 3.0

@@ -365,17 +365,30 @@ def _shear_masonry(Vy, Vp, c, uy=None, uu=None):
 
 def _drift_masonry(uy, up, uu, upc, Vy=None, Vp=None, c=None):
     '''shear-wall yield-peak-dropoff model'''
-    drift_cap = np.maximum(upc, 0.04)
-    return np.column_stack([uy, uu, upc, drift_cap])
+
+    # if uu is at 0.8V, back-calculate u_p at 1.0V, cap at 0.85*uu
+    up_eff = np.maximum(uu - 0.2*(upc - uu)/(0.8-c), 0.85*uu)
+    drift_cap = np.maximum(4*up_eff, 1.01*upc)
+    return np.column_stack([uy, up_eff, upc, drift_cap])
 
 def _shear_urm(Vy, Vp, c, uy=None, uu=None):
-    '''trilinear yield-peak-drop model'''
-    return np.column_stack([Vy, c * Vp, c * Vp, np.zeros_like(Vp)])
+    '''trapezoidal trilinear model'''
+    # Magenes & Calvi suggests capping Vu at 90% for energy equivalance
+    Vp_eff = np.minimum(0.9*Vp, Vy/uy*uu)
+    return np.column_stack([Vp_eff, Vp_eff, c * Vp, np.zeros_like(Vp)])
+    # return np.column_stack([Vy, c * Vp, c * Vp, np.zeros_like(Vp)])
 
 def _drift_urm(uy, up, uu, upc, Vy=None, Vp=None, c=None):
-    '''trilinear yield-peak-drop model'''
-    u_residual_cap = np.maximum(uu, 0.01)
-    return np.column_stack([uy, uu, u_residual_cap, np.ones_like(upc)*0.05])
+    '''trapezoidal trilinear model'''
+    uy_eff = Vp/Vy*uy
+    mu_u = uu/uy
+    uu_eff = mu_u * uy_eff
+    mu_pc = upc/uy
+    upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
+    up_eff = np.maximum(uu_eff - 0.2*(upc_eff - uu_eff)/(0.8-c), 0.85*uu_eff)
+    return np.column_stack([uy_eff, up_eff, upc_eff, 1.05*upc])
+    # u_residual_cap = np.maximum(uu, 0.01)
+    # return np.column_stack([uy, uu, u_residual_cap, np.ones_like(upc)*0.05])
 
 
 def _shear_iw(Vy, Vp, c, uy=None, uu=None):

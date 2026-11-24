@@ -277,11 +277,12 @@ def get_p695_ductility():
     cswsc_source = np.mean([0.20, 0.0])
 
     ########### precast
-    #  SEG recommends reduction by a factor of 1/2
+    #  SEG recommends reduction by a factor of 1/2 for walls
 
     ################## unreinforced masonry
     # sourced from Magenes & Calvi (1997)
     # Kappos et al. (2005)
+    # Petry & Beyer (2014)
     urm_mu = np.array([4.25, 2.53, 3.27, 4.63, 1.87, 2.28, 4.54, 7.30, 6.45, 7.55,
                        0.563/0.136, 1.633/0.374, 2.335/0.774, 0.588/0.075, 1.347/0.250, 2.132/0.506, 1.433/0.352])
 
@@ -289,8 +290,14 @@ def get_p695_ductility():
     # assume typical toe crushing drift is 0.5%
     urmd_source = np.mean(urm_mu)
     # urmd_source = np.mean([0.005, 0.004])/0.0025
+
+    # Petry & beyer horizontal loss to peak ratio
+    urm_h_to_p_ratio = np.mean(np.array([0.29/0.15, 0.17/0.12, 0.40/0.35, 0.37/0.37, 0.72/0.51, 0.93/0.72, 0.35/0.27,
+                                 0.36/0.36, 0.56/0.37, 0.54/0.53, 0.54/0.54, 0.70/0.70]))
+
+    
     urme_source = np.mean([0.005, 0.004])/0.0025
-    urmc_source = 0.1 # practically small
+    urmc_source = 0.5 # practically small
 
     ############################ infill
     # source: Kumar et al (2015), which aggregated a lot of CIW literature
@@ -349,9 +356,11 @@ def get_p695_ductility():
 
 
     # post-cap parameters
-    # take upper bound
-    # assume fully grouted
+    # use shear-governed critical drift ratios
+    # take the ratio of r to m point (beginning of residual to beginning of strength loss)
+    # c to m ratio is used to hard code the end of the residual regime in nmfs.py
     rme_source = 0.04/0.0025
+    r_to_m_ratio = 0.01 / 0.005
     rmc_source = 0.5
 
     # this represents the highest ductility available
@@ -391,15 +400,15 @@ def get_p695_ductility():
         'PCF2L' : [cmfdl_source, cmf_b_to_a_ratio*cmfdl_source, cmfc_source], # assume CMF
         'PCF2M' : [cmfdm_source, cmf_b_to_a_ratio*cmfdm_source, cmfc_source],     # assume CMF
         'PCF2H' : [cmfdh_source, cmf_b_to_a_ratio*cmfdh_source, cmfc_source], # assume CMF
-        'RMLL'  : [rmld_source, rme_source, rmc_source],
-        'RMLM'  : [rmhd_source, 0.66*rme_source, rmc_source],
-        'RMLH'  : [rmhd_source, 0.5*rme_source, rmc_source],
-        'RMCL'  : [rmld_source, rme_source, rmc_source],
-        'RMCM'  : [rmhd_source, 0.66*rme_source, rmc_source],
-        'RMCH'  : [rmhd_source, 0.5*rme_source, rmc_source],
-        'URML'  : [urmd_source, urme_source, urmc_source],
-        'URMM'  : [0.66*urmd_source, 0.66*urme_source, urmc_source],
-        'URMH'  : [0.66*urmd_source, 0.66*urme_source, urmc_source],
+        'RMLL'  : [rmld_source, r_to_m_ratio*rmld_source, rmc_source],
+        'RMLM'  : [rmhd_source, r_to_m_ratio*rmhd_source, rmc_source],
+        'RMLH'  : [rmhd_source, r_to_m_ratio*rmhd_source, rmc_source],
+        'RMCL'  : [rmld_source, r_to_m_ratio*rmld_source, rmc_source],
+        'RMCM'  : [rmhd_source, r_to_m_ratio*rmhd_source, rmc_source],
+        'RMCH'  : [rmhd_source, r_to_m_ratio*rmhd_source, rmc_source],
+        'URML'  : [urmd_source, urm_h_to_p_ratio*urmd_source, urmc_source],
+        'URMM'  : [0.66*urmd_source, urm_h_to_p_ratio*urmd_source, urmc_source],
+        'URMH'  : [0.66*urmd_source, urm_h_to_p_ratio*urmd_source, urmc_source],
         'CFS1L' : [cfs1d_source, cfs1_b_to_a_ratio*cfs1d_source, cfs1c_source],
         'CFS1M' : [0.75*cfs1d_source, cfs1_b_to_a_ratio*0.75*cfs1d_source, cfs1c_source],
         'CFS1H' : [0.75*cfs1d_source, cfs1_b_to_a_ratio*0.75*cfs1d_source, cfs1c_source],

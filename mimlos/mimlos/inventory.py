@@ -22,8 +22,6 @@ class Inventory:
     Field names are currently hard-coded to be of the formatting
     used by the City of Vancouver's Real Estate and Facilities Management
     (CoV REFM) building survey sheet.
-
-    TODO: description of methodology
     
     Attributes
     ----------
