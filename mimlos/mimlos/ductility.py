@@ -123,7 +123,8 @@ def get_p695_ductility():
 
     # the bump calibrates to SRG 3rd edition values
     smfe_source = 12.0*0.5
-    smfc_source = np.mean(np.array([0.6, 0.2]))
+    # smfc_source = np.mean(np.array([0.6, 0.2]))
+    smfc_source = np.mean(np.array([0.6]))
     # mid and high-rises, use HAZUS ratio (not used since source has height typologies)
 
     ########### steel braced frames
@@ -274,7 +275,10 @@ def get_p695_ductility():
     cswse_source = np.mean([0.02, 0.01])/0.0025 
     # steep drop off, but not completely vertical
     cswsd_ratio = 1.1
-    cswsc_source = np.mean([0.20, 0.0])
+    cswsc_source = np.mean([0.20, 0.0,
+                            0.40])
+
+    # 0.40 is from BC SRG
 
     ########### precast
     #  SEG recommends reduction by a factor of 1/2 for walls
@@ -397,9 +401,9 @@ def get_p695_ductility():
         'PCF1L' : [0.5*cswld_source, 0.5*cswsd_ratio*cswld_source, cswsc_source], # shear control, assume CSW
         'PCF1M' : [0.5*cswmd_source, 0.5*cswfd_ratio*cswmd_source, cswfc_source], # flexure control, assume CSW
         'PCF1H' : [0.5*cswhd_source, 0.5*cswfd_ratio*cswhd_source, cswfc_source], # flexure control, assume CSW
-        'PCF2L' : [cmfdl_source, cmf_b_to_a_ratio*cmfdl_source, cmfc_source], # assume CMF
-        'PCF2M' : [cmfdm_source, cmf_b_to_a_ratio*cmfdm_source, cmfc_source],     # assume CMF
-        'PCF2H' : [cmfdh_source, cmf_b_to_a_ratio*cmfdh_source, cmfc_source], # assume CMF
+        'PCF2L' : [0.5*cmfdl_source, 0.5*cmf_b_to_a_ratio*cmfdl_source, cmfc_source], # assume CMF
+        'PCF2M' : [0.5*cmfdm_source, 0.5*cmf_b_to_a_ratio*cmfdm_source, cmfc_source],     # assume CMF
+        'PCF2H' : [0.5*cmfdh_source, 0.5*cmf_b_to_a_ratio*cmfdh_source, cmfc_source], # assume CMF
         'RMLL'  : [rmld_source, r_to_m_ratio*rmld_source, rmc_source],
         'RMLM'  : [rmhd_source, r_to_m_ratio*rmhd_source, rmc_source],
         'RMLH'  : [rmhd_source, r_to_m_ratio*rmhd_source, rmc_source],
@@ -720,6 +724,7 @@ HAZUS_DESIGN_STRENGTH_TABLE = pd.DataFrame({
     "PC2H": [0.150,  0.075,  0.038,  0.038 ],
     "RM1L": [0.267,  0.133,  0.067,  0.067 ],
     "RM1M": [0.267,  0.133,  0.067,  0.067 ],
+    "RM1H": [0.200,  0.100,  0.050,  0.050 ],
     "RM2L": [0.267,  0.133,  0.067,  0.067 ],
     "RM2M": [0.267,  0.133,  0.067,  0.067 ],
     "RM2H": [0.200,  0.100,  0.050,  0.050 ],
@@ -765,6 +770,7 @@ HAZUS_PUSHOVER_TABLE = pd.DataFrame({
     "PC2H": [0.65, 0.60, 1.10, 2.00],
     "RM1L": [0.75, 0.75, 1.50, 2.00],
     "RM1M": [0.75, 0.75, 1.25, 2.00],
+    "RM1H": [0.65, 0.60, 1.10, 2.00],
     "RM2L": [0.75, 0.75, 1.50, 2.00],
     "RM2M": [0.75, 0.75, 1.25, 2.00],
     "RM2H": [0.65, 0.60, 1.10, 2.00],
@@ -807,6 +813,7 @@ HAZUS_DUCTILITY_TABLE = pd.DataFrame({
     "PC2H": [4.0, 3.0, 2.5, 2.5],
     "RM1L": [8.0, 6.0, 5.0, 5.0],
     "RM1M": [5.3, 4.0, 3.3, 3.3],
+    "RM1H": [4.0, 3.0, 2.5, 2.5],
     "RM2L": [8.0, 6.0, 5.0, 5.0],
     "RM2M": [5.3, 4.0, 3.3, 3.3],
     "RM2H": [4.0, 3.0, 2.5, 2.5],
@@ -856,6 +863,7 @@ high_code_cc_table = pd.DataFrame({
     "PC2H": [2.94*units.inch, 0.254, 23.52*units.inch, 0.508],
     "RM1L": [0.64*units.inch, 0.533, 10.23*units.inch, 1.066],
     "RM1M": [1.38*units.inch, 0.444, 14.76*units.inch, 0.889],
+    "RM1H": [3.92*units.inch, 0.338, 31.35*units.inch, 0.677],
     "RM2L": [0.64*units.inch, 0.533, 10.23*units.inch, 1.066],
     "RM2M": [1.38*units.inch, 0.444, 14.76*units.inch, 0.889],
     "RM2H": [3.92*units.inch, 0.338, 31.35*units.inch, 0.677],
@@ -895,6 +903,7 @@ moderate_code_cc_table = pd.DataFrame({
     "PC2H": [1.47*units.inch, 0.127, 8.82 *units.inch, 0.254],
     "RM1L": [0.32*units.inch, 0.267, 3.84 *units.inch, 0.533],
     "RM1M": [0.69*units.inch, 0.222, 5.54 *units.inch, 0.444],
+    "RM1H": [1.96*units.inch, 0.169, 11.76*units.inch, 0.338],
     "RM2L": [0.32*units.inch, 0.267, 3.84 *units.inch, 0.533],
     "RM2M": [0.69*units.inch, 0.222, 5.54 *units.inch, 0.444],
     "RM2H": [1.96*units.inch, 0.169, 11.76*units.inch, 0.338],
@@ -934,6 +943,7 @@ low_code_cc_table = pd.DataFrame({
     "PC2H": [0.74*units.inch, 0.063, 3.67*units.inch, 0.127],
     "RM1L": [0.16*units.inch, 0.133, 1.60*units.inch, 0.267],
     "RM1M": [0.35*units.inch, 0.111, 2.31*units.inch, 0.222],
+    "RM1H": [0.98*units.inch, 0.085, 4.90*units.inch, 0.169],
     "RM2L": [0.16*units.inch, 0.133, 1.60*units.inch, 0.267],
     "RM2M": [0.35*units.inch, 0.111, 2.31*units.inch, 0.222],
     "RM2H": [0.98*units.inch, 0.085, 4.90*units.inch, 0.169],
@@ -973,6 +983,7 @@ pre_code_cc_table = pd.DataFrame({
     "PC2H": [0.74*units.inch, 0.063, 4.41 *units.inch, 0.127],
     "RM1L": [0.16*units.inch, 0.133, 1.92 *units.inch, 0.267],
     "RM1M": [0.35*units.inch, 0.111, 2.77 *units.inch, 0.222],
+    "RM1H": [0.98*units.inch, 0.085, 5.88 *units.inch, 0.169],
     "RM2L": [0.16*units.inch, 0.133, 1.92 *units.inch, 0.267],
     "RM2M": [0.35*units.inch, 0.111, 2.77 *units.inch, 0.222],
     "RM2H": [0.98*units.inch, 0.085, 5.88 *units.inch, 0.169],

@@ -239,8 +239,6 @@ def _shear_ductile_steel(Vy, Vp, c, uy=None, uu=None):
     '''EPP-style eff_yield_peak-peak-ultimate model'''
 
     # extend the residual regime out to 10% drift
-
-    
     return np.column_stack([Vp, Vp, c * Vp, 0.1*Vp])
     # return np.column_stack([Vp, Vp, c * Vp, np.zeros_like(Vp)])
 
@@ -258,6 +256,7 @@ def _drift_ductile_steel(uy, up, uu, upc, Vy, Vp, c=None):
     uu_eff = mu_u * uy_eff
     mu_pc = upc/uy
     upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
+    up_eff = np.maximum(uu_eff - 0.2*(upc_eff - uu_eff)/(0.8-c), 0.5*(uy_eff + uu_eff))
     # upc_eff = mu_pc * uy_eff
     
     # extend the residual regime out to 10% drift
@@ -289,6 +288,7 @@ def _drift_ductile_cmf(uy, up, uu, upc, Vy, Vp, c=None):
     # uu_eff = uu
     mu_pc = upc/uy
     upc_eff = np.maximum(mu_pc * uy_eff, 1.01*uu_eff)
+    upc_eff = np.minimum(upc_eff, 1.2*uu_eff)
     up_eff = np.maximum(uu - 0.2*(upc_eff - uu)/(0.8-c), 0.5*(uy_eff + uu_eff))
     return np.column_stack([uy_eff, up_eff, uu_eff, upc_eff])
     # return np.column_stack([uy_eff, 0.5*(uy_eff + uu_eff), uu_eff, upc_eff])
@@ -352,7 +352,7 @@ def _drift_sw(uy, up, uu, upc, Vy=None, Vp=None, c=None):
 
     # if uu is at 0.8V, back-calculate u_p at 1.0V, cap at 0.85*uu
     up_eff = np.maximum(uu - 0.2*(upc_eff - uu)/(0.8-c), 0.85*uu)
-    return np.column_stack([uy, up_eff, upc_eff, 1.2*upc_eff])
+    return np.column_stack([uy, up_eff, upc_eff, 2.0*upc_eff])
 
     # x = 0.15*uu/(0.2*Vp)*(1-c)*Vp
     # uplateau = np.maximum(0.85*uu, uy) + x
