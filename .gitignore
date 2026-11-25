@@ -4,6 +4,9 @@ __pycache__/
 # demo outputs
 *.gif
 
+# report figures
+report_figures
+
 # macOS
 *.DS_Store
 .AppleDouble
